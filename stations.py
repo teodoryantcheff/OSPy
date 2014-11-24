@@ -268,10 +268,13 @@ class _BBBStations(_ShiftStations):
         super(_BBBStations, self).__init__(count)
 
 
-try:
-    stations = _RPiStations(options.output_count)
-except Exception:
-    try:
-        stations = _BBBStations(options.output_count)
-    except Exception:
-        stations = _DummyStations(options.output_count)
+from stations_radio import RadioStations
+stations = RadioStations(4)
+
+# try:
+#     stations = _RPiStations(options.output_count)
+# except Exception:
+#     try:
+#         stations = _BBBStations(options.output_count)
+#     except Exception:
+#         stations = _DummyStations(options.output_count)
