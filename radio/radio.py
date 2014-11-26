@@ -4,6 +4,7 @@
 
 import time
 import struct
+import ctypes
 import sys
 import logging
 import threading
@@ -11,12 +12,11 @@ from functools import wraps
 from collections import namedtuple
 from array import array
 
+from spidev import SpiDev
 
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     stream=sys.stderr,
                     level=logging.DEBUG)
-
-from spidev import SpiDev
 
 
 def debounce(wait_millis):
@@ -51,37 +51,6 @@ def rlocked(func):
         return r
 
     return wrapper
-
-
-class Endpoint(namedtuple('Endpoint',
-                          'link_id, address, link_ok, valves, acdc_type, rainsensor, short, open, batt, rssi1, rssi2')):
-    """Radio endpoint deivce. Encoded as a usable object"""
-
-    struct_format = '<BI7B2b'  # Used in struct.unpack_from
-    binary_size = 16           # Size in bytes of the packed structure
-
-    radio_instance = None
-
-    @classmethod
-    def make(cls, buf, offset=0, radio_instance=None):
-        ep = Endpoint._make(struct.unpack_from(Endpoint.struct_format, buf, offset))
-        ep.radio_instance = radio_instance
-        return ep
-
-    def __repr__(self):
-        return '{0.__class__.__name__}('            \
-               'address={0.address:#010x}, '        \
-               'link_id={0.link_id:}, '             \
-               'link_ok={0.link_ok:#04x}, '         \
-               'valves={0.valves}, '                \
-               'acdc_type={0.acdc_type:02d}, '      \
-               'rainsensor={0.rainsensor:#010b}, '  \
-               'short={0.short:#010b}, '            \
-               'open={0.open:#04x}, '               \
-               'batt={0.batt:#04x}, '               \
-               'rssi1={0.rssi1:}, '                 \
-               'rssi2={0.rssi2:}'                   \
-               ')'.format(self)
 
 
 class SpiRadio(SpiDev):
@@ -230,14 +199,13 @@ class OSPyRadio(object):
 
     @rlocked
     def get_endpoints(self):
-        status = array('B', self._radio.get_status())
+        # status = array('B', self._radio.get_status())
+        status = str(bytearray(self._radio.get_status()))
 
-        endpoints = []
-        for i in xrange(self._radio.get_status_size() / Endpoint.binary_size):  # Read all Status Entries
-            endpoint = Endpoint.make(status, i * Endpoint.binary_size, self)
-            endpoints.append(endpoint)
+        est = EndpointStatusTable(self)
+        est.deserialize(status)
 
-        return endpoints
+        return est.est
 
     @rlocked
     def get_netconfig_context(self):
@@ -249,27 +217,129 @@ class OSPyRadio(object):
         return context
 
     @rlocked
-    @debounce(500)
+    @debounce(500)  # TODO the debounce needs to be per endpoint
     def set_endpoint_outputs(self, ep_address, output_state):
-        ep_lid = None  # link_id of the endpoint having ep_address
 
+        # Find link id for endpoint having ep_address
+        ep_linkid = None  # link_id of the endpoint having ep_address
         for ep in self.get_endpoints():
             if ep.address == ep_address:
-                ep_lid = ep.link_id
+                ep_linkid = ep.link_id
                 break
-        if ep_lid:
-            print 'setting out state {:#04x} to link_id:{:#04x}'.format(output_state, ep_lid)
-            self._radio.set_outputs(ep_lid, output_state)
+
+        if ep_linkid:
+            print 'setting out {:#04x} to address:{#10x} link_id:{:#04x}'.format(output_state, ep_address, ep_linkid)
+            self._radio.set_outputs(ep_linkid, output_state)
         else:
             logging.error('{:#10x} not connected !'.format(ep_address))
 
+
+class _EndpointBase(ctypes.LittleEndianStructure):
+    def __init__(self, radio_instance, *args, **kwargs):
+        self._radio = radio_instance
+        super(_EndpointBase, self).__init__(*args, **kwargs)
+
+    def serialize(self):
+        return buffer(self)[:]
+
+    def deserialize(self, data):
+        fit = min(len(data), ctypes.sizeof(self))
+        ctypes.memmove(ctypes.addressof(self), data, fit)
+
+
+class Endpoint(_EndpointBase):
+    _pack_ = 1
+    _fields_ = [
+        ('link_id', ctypes.c_ubyte),
+        ('address', ctypes.c_uint32),
+        ('_link_ok', ctypes.c_ubyte, 1),
+        ('_rainsensor', ctypes.c_ubyte, 1),
+        # ('__unusedstatusbits', ctypes.c_ubyte, 6),
+        ('output_state', ctypes.c_ubyte),
+        ('device_type', ctypes.c_ubyte, 4),
+        ('num_valves', ctypes.c_ubyte, 4),
+        ('_voltage', ctypes.c_ubyte),
+        ('current', ctypes.c_uint16),
+        ('temperature', ctypes.c_ubyte),
+        ('rssi1', ctypes.c_byte),
+        ('rssi2', ctypes.c_byte),
+        ('__unused2', ctypes.c_uint16)
+    ]
+
+    @property
+    def voltage(self):
+        return (self._voltage * 128) / 1000.0
+
+    @property
+    def link_ok(self):
+        return True if self._link_ok else False
+
+    @property
+    def rainsensor(self):
+        return True if self._rainsensor else False
+
+    def set_outputs(self, outputs):
+        self._radio.set_outputs(self.link_id, outputs)
+
+    def __repr__(self):
+        return '{0.__class__.__name__}('            \
+               'address={0.address:#010x}, '        \
+               'link_id={0.link_id:}, '             \
+               'link_ok={0.link_ok:}, '             \
+               'rainsensor={0.rainsensor:}, '       \
+               'outputs={0.output_state:#04x}, '    \
+               'valves={0.num_valves}, '            \
+               'voltage={0.voltage:}, '             \
+               'current={0.current:}, '             \
+               'temperature={0.temperature:}, '     \
+               'rssi1={0.rssi1:}, '                 \
+               'rssi2={0.rssi2:}'                   \
+               ')'.format(self)
+
+
+class EndpointStatusTable(_EndpointBase):
+    _pack_ = 1
+    _fields_ = [
+        ('est', Endpoint * 48)
+    ]
+
+
+# class Endpoint(namedtuple('Endpoint',
+#                           'link_id, address, link_ok, valves, acdc_type, rainsensor, short, open, batt, rssi1, rssi2')):
+#     """Radio endpoint deivce. Encoded as a usable object"""
+#
+#     struct_format = '<BI7B2b'  # Used in struct.unpack_from
+#     binary_size = 16           # Size in bytes of the packed structure
+#
+#     radio_instance = None
+#
+#     @classmethod
+#     def make(cls, buf, offset=0, radio_instance=None):
+#         ep = Endpoint._make(struct.unpack_from(Endpoint.struct_format, buf, offset))
+#         ep.radio_instance = radio_instance
+#         return ep
+#
+#     def __repr__(self):
+#         return '{0.__class__.__name__}('            \
+#                'address={0.address:#010x}, '        \
+#                'link_id={0.link_id:}, '             \
+#                'link_ok={0.link_ok:#04x}, '         \
+#                'valves={0.valves}, '                \
+#                'acdc_type={0.acdc_type:02d}, '      \
+#                'rainsensor={0.rainsensor:#010b}, '  \
+#                'short={0.short:#010b}, '            \
+#                'open={0.open:#04x}, '               \
+#                'batt={0.batt:#04x}, '               \
+#                'rssi1={0.rssi1:}, '                 \
+#                'rssi2={0.rssi2:}'                   \
+#                ')'.format(self)
 
 def binfmt(data):
     return ' '.join(['0b{:08b}'.format(x) for x in data])
 
 
 def hexfmt(data):
-    return ' '.join(['0x{:02X}'.format(x) for x in data])
+    return ' '.join(['{:#04x}'.format(x) for x in data])
 
 
 def test_lowlevel():
@@ -363,6 +433,33 @@ def test_higherlevel():
     ospy_radio.set_endpoint_outputs(0x12345677, 0x00)
 
 
+def ttt():
+    # In[7]: %timeit array('B', l[32:48]).tostring()
+    # 1000000 loops, best of 3: 1.92 µs per loop
+    # In[8]: %timeit str(bytearray(l[32:48]))
+    # 100000 loops, best of 3: 2.59 µs per loop
+
+    print 'single:{} array:{}'.format(
+        ctypes.sizeof(Endpoint),
+        ctypes.sizeof(EndpointStatusTable)
+    )
+
+    radio = SpiRadio(bus=0, device=0)
+    radio.reset_device()
+    radio.set_outputs(1, 0x0a)
+    est = EndpointStatusTable(radio)
+    status = radio.get_status()
+    # arr = array('B', status).tostring()
+    arr = str(bytearray(status))
+    est.deserialize(arr)
+    for ep in est.est:
+        if ep.link_id:
+            print ep
+
+    radio.close()
+
+
 if __name__ == '__main__':
-    sys.exit(test_higherlevel())
+    sys.exit(ttt())
+    # sys.exit(test_higherlevel())
     # sys.exit(test_lowlevel())
