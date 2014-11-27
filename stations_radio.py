@@ -29,17 +29,17 @@ class RadioStations(_BaseStations):
         super(RadioStations, self).__init__(*args)
 
     def _activate(self):
-        print 'activate', self._state
         endpoints = self.radio.get_endpoints()
         ep = endpoints[0]
-        o = 0
+        out_byte = 0
         for station in self._stations:
             if station.active:
-                o |= (1 << station.index)
+                out_byte |= (1 << station.index)
             else:
-                o &= ~(1 << station.index)
-            self.radio.set_endpoint_outputs(0x12345677, o)
+                out_byte &= ~(1 << station.index)
+            self.radio.set_endpoint_outputs(ep.address, out_byte)
             # if station.index < 4:
+        print 'activate {} {:#04x}'.format(self._state, out_byte)
 
     def resize(self, count):
         super(RadioStations, self).resize(count)
