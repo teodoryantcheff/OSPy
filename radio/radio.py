@@ -3,13 +3,11 @@
 
 
 import time
-import struct
 import ctypes
 import sys
 import logging
 import threading
 from functools import wraps
-from collections import namedtuple
 from array import array
 
 from spidev import SpiDev
@@ -25,6 +23,7 @@ def debounce(wait_millis):
         have elapsed since the last time it was invoked. """
     def wrapper(func):
         def debounced(*args, **kwargs):
+
             def call_func():
                 func(*args, **kwargs)
 
@@ -39,15 +38,15 @@ def debounce(wait_millis):
     return wrapper
 
 
-def rlocked(func):
-    """ Decorator that guards func's reentrancy with a threading.RLock """
-    rlock = threading.RLock()
+def guarded(func):
+    """ Decorator that guards func's thread reentrancy """
+    lock = threading.Semaphore()
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        rlock.acquire()
-        r = func(*args, **kwargs)
-        rlock.release()
+        with lock:
+            r = func(*args, **kwargs)
+
         return r
 
     return wrapper
@@ -109,6 +108,7 @@ class SpiRadio(SpiDev):
         """
 
     _BUS_SPEED = 100000  # Clock data at this rate
+    # _BUS_SPEED = 200000  # Clock data at this rate
 
     # _STATUS_ENTRY_SIZE = 16  # size in bytes of a single status table entry
 
@@ -188,18 +188,19 @@ class SpiRadio(SpiDev):
 
 
 class OSPyRadio(object):
-    @rlocked
+    @guarded
     def __init__(self, bus=0, device=0):
         self._radio = SpiRadio(bus=bus, device=device)
         self._endpoints_cache = []
 
-    @rlocked
+        self._output_timers = {}
+
+    @guarded
     def reset_radio(self):
         self._radio.reset_device()
 
-    @rlocked
+    @guarded
     def get_endpoints(self):
-        # status = array('B', self._radio.get_status())
         status = str(bytearray(self._radio.get_status()))
 
         est = EndpointStatusTable(self)
@@ -207,29 +208,43 @@ class OSPyRadio(object):
 
         return est.est
 
-    @rlocked
+    @guarded
     def get_netconfig_context(self):
-        # Load neconfig from device and print link info
+        # Load neconfig from device
         import structs
 
         context = structs.persistentContext_t()
         context.unpack(array('B', self._radio.get_netconfig()))
         return context
 
-    @rlocked
-    @debounce(500)  # TODO the debounce needs to be per endpoint
+    @guarded
     def set_endpoint_outputs(self, ep_address, output_state):
 
         # Find link id for endpoint having ep_address
-        ep_linkid = None  # link_id of the endpoint having ep_address
+        link_id = None  # link_id of the endpoint having ep_address
         for ep in self.get_endpoints():
             if ep.address == ep_address:
-                ep_linkid = ep.link_id
+                link_id = ep.link_id
                 break
+        # d = {
+        #     0x12345677: 1,
+        #     0x12345678: 2,
+        #     0x12345679: 3,
+        # }
+        # link_id = d[ep_address]
 
-        if ep_linkid:
-            print 'setting out {:#04x} to address:{#10x} link_id:{:#04x}'.format(output_state, ep_address, ep_linkid)
-            self._radio.set_outputs(ep_linkid, output_state)
+        if link_id:
+            try:
+                self._output_timers[link_id].cancel()
+            except:
+                pass
+
+            def do_set():
+                self._radio.set_outputs(link_id, output_state)
+                # print 'setting out:{:#04x} to a:{:#10x} lid:{:#04x}'.format(output_state, ep_address, link_id)
+
+            self._output_timers[link_id] = threading.Timer(500/1000.0, do_set)
+            self._output_timers[link_id].start()
         else:
             logging.error('{:#10x} not connected !'.format(ep_address))
 
@@ -426,11 +441,20 @@ def test_higherlevel():
             print e
 
     logging.debug('Set outs')
-    ospy_radio.set_endpoint_outputs(0x12345677, 0xAA)
-    time.sleep(1)
-    ospy_radio.set_endpoint_outputs(0x12345677, 0x55)
-    time.sleep(1)
-    ospy_radio.set_endpoint_outputs(0x12345677, 0x00)
+    ospy_radio.set_endpoint_outputs(0x12345677, 0x11)
+    ospy_radio.set_endpoint_outputs(0x12345677, 0x22)
+    ospy_radio.set_endpoint_outputs(0x12345677, 0x33)
+    ospy_radio.set_endpoint_outputs(0x12345677, 0xFF)
+
+    ospy_radio.set_endpoint_outputs(0x12345678, 0x55)
+    ospy_radio.set_endpoint_outputs(0x12345679, 0x56)
+    ospy_radio.set_endpoint_outputs(0x12345678, 0x57)
+    ospy_radio.set_endpoint_outputs(0x12345679, 0x58)
+    ospy_radio.set_endpoint_outputs(0x12345678, 0x59)
+    ospy_radio.set_endpoint_outputs(0x12345679, 0x5a)
+
+    # time.sleep(.1)
+    # ospy_radio.set_endpoint_outputs(0x12345677, 0x00)
 
 
 def ttt():
@@ -460,6 +484,6 @@ def ttt():
 
 
 if __name__ == '__main__':
-    sys.exit(ttt())
-    # sys.exit(test_higherlevel())
+    # sys.exit(ttt())
+    sys.exit(test_higherlevel())
     # sys.exit(test_lowlevel())
