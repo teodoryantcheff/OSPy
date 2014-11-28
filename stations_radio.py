@@ -2,18 +2,9 @@ __author__ = 'teodoryantcheff'
 
 import logging
 
-from stations import _Station
 from stations import _BaseStations
 
 from radio.radio import SpiRadio, OSPyRadio
-from radio.radio import Endpoint
-
-
-class _RadioStation(_Station):
-    def __init__(self, *args):
-        super(_RadioStation, self).__init__(*args)
-        self.endpoint_address = None
-        self.endpoint_index = None
 
 
 class RadioStations(_BaseStations):
@@ -21,25 +12,34 @@ class RadioStations(_BaseStations):
 
     def __init__(self, *args):
 
-        self.radio = OSPyRadio(bus=0, device=0)
+        self.radio = OSPyRadio.get_instance()
 
         logging.debug('RADIO device reset')
         self.radio.reset_radio()
 
+        # TODO: station mapping config and saving
+        self.stations_mapping = [
+            # array index = station index
+            (0x12345677, 0),
+            (0x12345677, 1),
+            (0x12345677, 2),
+            (0x12345677, 3),
+
+            (0x12345678, 4),
+            (0x12345678, 5),
+            (0x12345678, 6),
+            (0x12345678, 7),
+        ]
+
         super(RadioStations, self).__init__(*args)
 
     def _activate(self):
-        endpoints = self.radio.get_endpoints()
-        ep = endpoints[0]
-        out_byte = 0
-        for station in self._stations:
+        for index, station in enumerate(self._stations):
+            ep_address, valve_index = self.stations_mapping[index]
             if station.active:
-                out_byte |= (1 << station.index)
+                self.radio.start_valve(ep_address, valve_index)
             else:
-                out_byte &= ~(1 << station.index)
-            self.radio.set_endpoint_outputs(ep.address, out_byte)
-            # if station.index < 4:
-        print 'activate {} {:#04x}'.format(self._state, out_byte)
+                self.radio.stop_valve(ep_address, valve_index)
 
     def resize(self, count):
         super(RadioStations, self).resize(count)

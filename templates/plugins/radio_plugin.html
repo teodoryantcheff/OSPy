@@ -1,0 +1,53 @@
+$def with(endpoints)
+
+$var title: RADIO
+$var page: plugins
+
+<div id="plugin">
+    <div class="title">Radio Status</div>
+    <form id="pluginForm" action="/info" method="get">
+    <!--
+    'address={0.address:#010x}, ' \
+    'link_id={0.link_id:}, ' \
+    'link_ok={0.link_ok:}, ' \
+    'rainsensor={0.rainsensor:}, ' \
+    'outputs={0.output_state:#04x}, ' \
+    'valves={0.num_valves}, ' \
+    'voltage={0.voltage:}, ' \
+    'current={0.current:}, ' \
+    'temperature={0.temperature:}, ' \
+    'rssi1={0.rssi1:}, ' \
+    'rssi2={0.rssi2:}' \
+-->
+
+        <table class="logList">
+            <tr class="log_rec">
+              <th>Address</th>
+              <th>Link ID</th>
+              <th>Link OK</th>
+              <th>Rainsensor</th>
+              <th>Valves</th>
+              <th>Outputs</th>
+              <th>V</th>
+              <th>A</th>
+              <th>T</th>
+              <th>RSSI1</th>
+              <th>RSSI2</th>
+            </tr>
+        $for endpoint in [e for e in endpoints if e.link_id]:
+            <tr class="log_rec ${loop.parity}">
+              <td>$'{:#010x}'.format(endpoint.address)</td>
+              <td>$endpoint.link_id</td>
+              <td>$endpoint.link_ok</td>
+              <td>$endpoint.rainsensor</td>
+              <td>$endpoint.num_valves</td>
+              <td>$'{:#010b}'.format(endpoint.outputs)</td>
+              <td>$'{:4.2f}'.format(endpoint.voltage) V</td>
+              <td>$endpoint.current mA</td>
+              <td>$endpoint.temperature °C</td>
+              <td>$endpoint.rssi1</td>
+              <td>$endpoint.rssi2</td>
+            </tr>
+        </table>
+    </form>
+</div>

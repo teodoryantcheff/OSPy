@@ -9,9 +9,11 @@ import logging
 import threading
 from functools import wraps
 from array import array
+from datetime import datetime
 
 from spidev import SpiDev
 
+# TODO fix logging
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     stream=sys.stderr,
                     level=logging.DEBUG)
@@ -162,6 +164,7 @@ class SpiRadio(SpiDev):
         logging.debug('get_status')
         if not self._status_table_size:
             self.get_status_size()  # How many bytes to read back
+
         self.writebytes([0x55, 0x0C])  # Command Get status
         return self.readbytes(self._status_table_size)
         # return array.array('B', self.readbytes(to_read))
@@ -188,12 +191,26 @@ class SpiRadio(SpiDev):
 
 
 class OSPyRadio(object):
+
+    ENDPOINT_CACHE_TIME = 500  # milliseconds
+    SETOUTPUT_DEBOUNCE_TIME = 150  # milliseconds
+
+    __instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if not cls.__instance:
+            cls.__instance = OSPyRadio()
+        return cls.__instance
+
     @guarded
     def __init__(self, bus=0, device=0):
         self._radio = SpiRadio(bus=bus, device=device)
-        self._endpoints_cache = []
 
+        self._endpoints_output_cache = {}
         self._output_timers = {}
+        self._last_endpoints_refresh = datetime(1, 1, 1)
+        self._endpoints_cache = []
 
     @guarded
     def reset_radio(self):
@@ -201,12 +218,15 @@ class OSPyRadio(object):
 
     @guarded
     def get_endpoints(self):
-        status = str(bytearray(self._radio.get_status()))
+        now = datetime.now()
+        if (now - self._last_endpoints_refresh).total_seconds() > self.ENDPOINT_CACHE_TIME/1000.0:
+            self._last_endpoints_refresh = now
+            status = str(bytearray(self._radio.get_status()))
+            est = EndpointStatusTable(self)
+            est.deserialize(status)
+            self._endpoints_cache = est.est
 
-        est = EndpointStatusTable(self)
-        est.deserialize(status)
-
-        return est.est
+        return self._endpoints_cache
 
     @guarded
     def get_netconfig_context(self):
@@ -219,19 +239,13 @@ class OSPyRadio(object):
 
     @guarded
     def set_endpoint_outputs(self, ep_address, output_state):
-
+        logging.debug('Setting outputs of {:#010x} to {:#04x}'.format(ep_address, output_state))
         # Find link id for endpoint having ep_address
         link_id = None  # link_id of the endpoint having ep_address
         for ep in self.get_endpoints():
             if ep.address == ep_address:
                 link_id = ep.link_id
                 break
-        # d = {
-        #     0x12345677: 1,
-        #     0x12345678: 2,
-        #     0x12345679: 3,
-        # }
-        # link_id = d[ep_address]
 
         if link_id:
             try:
@@ -239,14 +253,29 @@ class OSPyRadio(object):
             except:
                 pass
 
-            def do_set():
-                self._radio.set_outputs(link_id, output_state)
-                # print 'setting out:{:#04x} to a:{:#10x} lid:{:#04x}'.format(output_state, ep_address, link_id)
-
-            self._output_timers[link_id] = threading.Timer(500/1000.0, do_set)
+            self._output_timers[link_id] = threading.Timer(self.SETOUTPUT_DEBOUNCE_TIME/1000.0,
+                                                           self._radio.set_outputs, (link_id, output_state))
             self._output_timers[link_id].start()
         else:
-            logging.error('{:#10x} not connected !'.format(ep_address))
+            logging.error('{:#010x} not connected !'.format(ep_address))
+
+    @guarded
+    def start_valve(self, ep_address, valve_num):
+        try:
+            self._endpoints_output_cache[ep_address] |= (0x01 << valve_num)
+        except:
+            self._endpoints_output_cache[ep_address] = (0x01 << valve_num)
+
+        self.set_endpoint_outputs(ep_address, self._endpoints_output_cache[ep_address])
+
+    @guarded
+    def stop_valve(self, ep_address, valve_num):
+        try:
+            self._endpoints_output_cache[ep_address] &= ~(0x01 << valve_num)
+        except:
+            self._endpoints_output_cache[ep_address] = 0
+
+        self.set_endpoint_outputs(ep_address, self._endpoints_output_cache[ep_address])
 
 
 class _EndpointBase(ctypes.LittleEndianStructure):
@@ -270,7 +299,7 @@ class Endpoint(_EndpointBase):
         ('_link_ok', ctypes.c_ubyte, 1),
         ('_rainsensor', ctypes.c_ubyte, 1),
         # ('__unusedstatusbits', ctypes.c_ubyte, 6),
-        ('output_state', ctypes.c_ubyte),
+        ('outputs', ctypes.c_ubyte),
         ('device_type', ctypes.c_ubyte, 4),
         ('num_valves', ctypes.c_ubyte, 4),
         ('_voltage', ctypes.c_ubyte),
@@ -280,6 +309,10 @@ class Endpoint(_EndpointBase):
         ('rssi2', ctypes.c_byte),
         ('__unused2', ctypes.c_uint16)
     ]
+
+    # def __init__(self, radio_instance, *args, **kwargs):
+    #     self.requested_outputs = 0
+    #     super(Endpoint, self).__init__(self, radio_instance, *args, **kwargs)
 
     @property
     def voltage(self):
@@ -293,22 +326,34 @@ class Endpoint(_EndpointBase):
     def rainsensor(self):
         return True if self._rainsensor else False
 
-    def set_outputs(self, outputs):
-        self._radio.set_outputs(self.link_id, outputs)
+    # # TODO
+    # def set_outputs(self, outputs):
+    #     self.requested_outputs = outputs
+    #     self._radio.set_outputs(self.link_id, outputs)
+    #
+    # # TODO
+    # def start_valve(self, valve_num):
+    #     self.requested_outputs |= (0x01 << valve_num)
+    #     self._radio.set_outputs(self.link_id, self.requested_outputs)
+    #
+    # # TODO
+    # def stop_valve(self, valve_num):
+    #     self.requested_outputs &= ~(0x01 << valve_num)
+    #     self._radio.set_outputs(self.link_id, self.requested_outputs)
 
     def __repr__(self):
-        return '{0.__class__.__name__}('            \
-               'address={0.address:#010x}, '        \
-               'link_id={0.link_id:}, '             \
-               'link_ok={0.link_ok:}, '             \
-               'rainsensor={0.rainsensor:}, '       \
-               'outputs={0.output_state:#04x}, '    \
-               'valves={0.num_valves}, '            \
-               'voltage={0.voltage:}, '             \
-               'current={0.current:}, '             \
-               'temperature={0.temperature:}, '     \
-               'rssi1={0.rssi1:}, '                 \
-               'rssi2={0.rssi2:}'                   \
+        return '{0.__class__.__name__}(' \
+               'address={0.address:#010x}, ' \
+               'link_id={0.link_id:}, ' \
+               'link_ok={0.link_ok:}, ' \
+               'rainsensor={0.rainsensor:}, ' \
+               'outputs={0.outputs:#04x}, ' \
+               'valves={0.num_valves}, ' \
+               'voltage={0.voltage:}, ' \
+               'current={0.current:}, ' \
+               'temperature={0.temperature:}, ' \
+               'rssi1={0.rssi1:}, ' \
+               'rssi2={0.rssi2:}' \
                ')'.format(self)
 
 
@@ -432,6 +477,8 @@ def test_lowlevel():
 
 def test_higherlevel():
     logging.debug('Init')
+    OSPyRadio.get_instance()
+    sys.exit()
     ospy_radio = OSPyRadio()
     logging.debug('Reset')
     ospy_radio.reset_radio()
@@ -453,8 +500,8 @@ def test_higherlevel():
     ospy_radio.set_endpoint_outputs(0x12345678, 0x59)
     ospy_radio.set_endpoint_outputs(0x12345679, 0x5a)
 
+    ospy_radio.set_endpoint_outputs(0x12345677, 0x00)
     # time.sleep(.1)
-    # ospy_radio.set_endpoint_outputs(0x12345677, 0x00)
 
 
 def ttt():
