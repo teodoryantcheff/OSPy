@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # coding=utf-8
-
+from collections import OrderedDict
 
 import time
 import ctypes
@@ -11,7 +11,10 @@ from functools import wraps
 from array import array
 from datetime import datetime
 
-from spidev import SpiDev
+try:
+    from spidev import SpiDev
+except:
+    SpiDev = object
 
 # TODO fix logging
 logging.basicConfig(format='%(levelname)s:%(message)s',
@@ -279,7 +282,7 @@ class OSPyRadio(object):
 
 
 class _EndpointBase(ctypes.LittleEndianStructure):
-    def __init__(self, radio_instance, *args, **kwargs):
+    def __init__(self, radio_instance=None, *args, **kwargs):
         self._radio = radio_instance
         super(_EndpointBase, self).__init__(*args, **kwargs)
 
@@ -301,7 +304,7 @@ class Endpoint(_EndpointBase):
         # ('__unusedstatusbits', ctypes.c_ubyte, 6),
         ('outputs', ctypes.c_ubyte),
         ('device_type', ctypes.c_ubyte, 4),
-        ('num_valves', ctypes.c_ubyte, 4),
+        ('valves', ctypes.c_ubyte, 4),
         ('_voltage', ctypes.c_ubyte),
         ('current', ctypes.c_uint16),
         ('temperature', ctypes.c_ubyte),
@@ -309,10 +312,6 @@ class Endpoint(_EndpointBase):
         ('rssi2', ctypes.c_byte),
         ('__unused2', ctypes.c_uint16)
     ]
-
-    # def __init__(self, radio_instance, *args, **kwargs):
-    #     self.requested_outputs = 0
-    #     super(Endpoint, self).__init__(self, radio_instance, *args, **kwargs)
 
     @property
     def voltage(self):
@@ -326,21 +325,6 @@ class Endpoint(_EndpointBase):
     def rainsensor(self):
         return True if self._rainsensor else False
 
-    # # TODO
-    # def set_outputs(self, outputs):
-    #     self.requested_outputs = outputs
-    #     self._radio.set_outputs(self.link_id, outputs)
-    #
-    # # TODO
-    # def start_valve(self, valve_num):
-    #     self.requested_outputs |= (0x01 << valve_num)
-    #     self._radio.set_outputs(self.link_id, self.requested_outputs)
-    #
-    # # TODO
-    # def stop_valve(self, valve_num):
-    #     self.requested_outputs &= ~(0x01 << valve_num)
-    #     self._radio.set_outputs(self.link_id, self.requested_outputs)
-
     def __repr__(self):
         return '{0.__class__.__name__}(' \
                'address={0.address:#010x}, ' \
@@ -348,13 +332,19 @@ class Endpoint(_EndpointBase):
                'link_ok={0.link_ok:}, ' \
                'rainsensor={0.rainsensor:}, ' \
                'outputs={0.outputs:#04x}, ' \
-               'valves={0.num_valves}, ' \
+               'valves={0.valves}, ' \
                'voltage={0.voltage:}, ' \
                'current={0.current:}, ' \
                'temperature={0.temperature:}, ' \
                'rssi1={0.rssi1:}, ' \
                'rssi2={0.rssi2:}' \
                ')'.format(self)
+
+    def as_dict(self):
+        d = OrderedDict([(k, getattr(self, k))
+                        for k in ['address', 'link_id', 'link_ok', 'rainsensor', 'outputs', 'valves',
+                                  'voltage', 'current', 'temperature', 'rssi1', 'rssi2']])
+        return d
 
 
 class EndpointStatusTable(_EndpointBase):
@@ -477,15 +467,13 @@ def test_lowlevel():
 
 def test_higherlevel():
     logging.debug('Init')
-    OSPyRadio.get_instance()
-    sys.exit()
-    ospy_radio = OSPyRadio()
+    ospy_radio = OSPyRadio.get_instance()
     logging.debug('Reset')
     ospy_radio.reset_radio()
     logging.debug('Endpoints:')
     for e in ospy_radio.get_endpoints():
         if e.link_id:
-            print e
+            print e.as_dict()
 
     logging.debug('Set outs')
     ospy_radio.set_endpoint_outputs(0x12345677, 0x11)

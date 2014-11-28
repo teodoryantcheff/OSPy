@@ -1,19 +1,30 @@
-from radio.radio import OSPyRadio
-
 __author__ = 'Jailbreaker'
 
-from webpages import ProtectedPage
 
+try:
+    import simplejson as json
+except:
+    import json
+
+import logging
+
+import web
+from webpages import ProtectedPage
+from radio import OSPyRadio, Endpoint
 
 NAME = 'Radio'
 LINK = 'status_page'
+
+radio = None
 
 
 ################################################################################
 # Helper functions:                                                            #
 ################################################################################
 def start():
-    pass
+    global radio
+    print ('INIT RADIO from plugin')
+    radio = OSPyRadio.get_instance()
 
 
 def stop():
@@ -24,8 +35,15 @@ def stop():
 # Web pages:                                                                   #
 ################################################################################
 class status_page(ProtectedPage):
-    radio = OSPyRadio.get_instance()
-
     def GET(self):
-        endpoints = list(self.radio.get_endpoints())
+        endpoints = list(radio.get_endpoints())
         return self.template_render.plugins.radio_plugin(endpoints)
+
+
+class status_json(ProtectedPage):
+    def GET(self):
+        endpoints = list(radio.get_endpoints())
+
+        web.header('Access-Control-Allow-Origin', '*')
+        web.header('Content-Type', 'application/json')
+        return json.dumps(endpoints, default=Endpoint.as_dict)

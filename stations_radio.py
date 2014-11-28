@@ -4,7 +4,7 @@ import logging
 
 from stations import _BaseStations
 
-from radio.radio import SpiRadio, OSPyRadio
+from radio import OSPyRadio
 
 
 class RadioStations(_BaseStations):
