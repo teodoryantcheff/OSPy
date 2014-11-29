@@ -1,12 +1,11 @@
-__author__ = 'Jailbreaker'
+# coding=utf-8
 
+__author__ = 'teodoryantcheff'
 
 try:
     import simplejson as json
 except:
     import json
-
-import logging
 
 import web
 from webpages import ProtectedPage

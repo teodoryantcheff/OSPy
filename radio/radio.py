@@ -1,20 +1,23 @@
-#!/usr/bin/python
 # coding=utf-8
-from collections import OrderedDict
+
+__author__ = 'teodoryantcheff'
 
 import time
 import ctypes
 import sys
 import logging
 import threading
-from functools import wraps
 from array import array
 from datetime import datetime
+
+from utils import guarded
+from endpoint import EndpointStatusTable, Endpoint
 
 try:
     from spidev import SpiDev
 except:
     SpiDev = object
+
 
 # TODO fix logging
 logging.basicConfig(format='%(levelname)s:%(message)s',
@@ -22,100 +25,15 @@ logging.basicConfig(format='%(levelname)s:%(message)s',
                     level=logging.DEBUG)
 
 
-def debounce(wait_millis):
-    """ Decorator that will postpone a functions
-        execution until after wait_millis millisecs
-        have elapsed since the last time it was invoked. """
-    def wrapper(func):
-        def debounced(*args, **kwargs):
-
-            def call_func():
-                func(*args, **kwargs)
-
-            try:
-                debounced.timer.cancel()
-            except AttributeError:
-                pass
-            debounced.timer = threading.Timer(wait_millis / 1000.0, call_func)
-            debounced.timer.start()
-
-        return debounced
-    return wrapper
-
-
-def guarded(func):
-    """ Decorator that guards func's thread reentrancy """
-    lock = threading.Semaphore()
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        with lock:
-            r = func(*args, **kwargs)
-
-        return r
-
-    return wrapper
-
-
 class SpiRadio(SpiDev):
-    """Mega radio connected over spi
+    """Mega radio connected over SPI
 
         Source : https://docs.google.com/document/d/1FiQ4Q2LxqjEiFXdZioh2Kb4eAb2XIkMK5a_XP6EbG3w/edit
 
-        1.	55 02		- Write Device RESET. Може да потрябва!
-
-        2.	55 04		- Write network configuration.	Следва запис на  xxx байта
-
-        3.	55 06 xx yy	- Write -Command ON/OFF,	yy - битовете за  ON/OFF на крайното у-о
-                                         bit = 1 -> ON
-                                         bit = 0 -> OFF
-                                    xx - LinkID  на крайното у-о
-
-        4.	55 08 xx yy	- Write -Rain sensor type,	yy - 0000 0000 - no sensor connected
-                                       - 0000 0001 - Normal Open type
-                                       - 0000 0010 - Normal Closed type
-                                    xx - LinkID  на крайното у-о
-
-        5.	55 0A		- Read network configuration. Следва четене на  xxx байта
-
-        6.	55 0C		- Read status. Следва четене на xxx байта - Status_TBL
-
-        7.	55 0E		- Write status. Следва запис на xxx байта - Status_TBL
-
-        8.	55 10		- Read status length xxx. Връща два байта за дължина. 1-LSB, 2-MSB
-
-        9.	55 12		- Read network configuration length xxx.
-          Връща два байта за дължина. 1-LSB, 2-MSB
-
-
-        Status_TBL  48 x 8 bytes = 384,    Pointer is LinkID-1
-            byte 0  - LinkID	LinkID
-            byte 1  - Dst. Addr MSB , 7x
-            byte 2  - Dst. Addr...  , 56
-            byte 3  - Dst. Addr...  , 34
-            byte 4  - Dst. Addr LSB , 12
-
-            byte 5  - LinkOK	LinkOK	xxxx xxx1 = OK, xxxx xxx0 = No Link
-                        става 1 веднага след Link с ED
-                        нулира се ако 15 секунди няма запитване за съобщение от този LinkID.
-            byte 6  - V_num	брой изходи за управление на вентили
-            byte 7  - V_ACDC	тип: 9 - 9VDC, 24 - 24VAC
-
-            byte 8  - RAIN	статус на сензора. 0000 0000 - no rain, 0000 0001 - rain detected.
-            byte 9  - SHORT	късо по кой изход 0-7  (1-8), 0- no short, 1- short circuit.
-            byte 10 - OPEN	прекъсване по кой изход 0-7  (1-8), 0- no open, 1- open circuit.
-            byte 11 - BATT	състояние на батерията ако е тип 9VDC
-
-            byte 12 - Rssi_from_AP	измерен от ED
-            byte 13 - Rssi_from_ED	измерен от AP
-            byte 14 - 0
-            byte 15 - 0
         """
 
     _BUS_SPEED = 100000  # Clock data at this rate
     # _BUS_SPEED = 200000  # Clock data at this rate
-
-    # _STATUS_ENTRY_SIZE = 16  # size in bytes of a single status table entry
 
     def __init__(self, *args, **kwargs):
         super(SpiRadio, self).__init__()
@@ -234,9 +152,9 @@ class OSPyRadio(object):
     @guarded
     def get_netconfig_context(self):
         # Load neconfig from device
-        import structs
+        import netconfig
 
-        context = structs.persistentContext_t()
+        context = netconfig.persistentContext_t()
         context.unpack(array('B', self._radio.get_netconfig()))
         return context
 
@@ -280,109 +198,6 @@ class OSPyRadio(object):
 
         self.set_endpoint_outputs(ep_address, self._endpoints_output_cache[ep_address])
 
-
-class _EndpointBase(ctypes.LittleEndianStructure):
-    def __init__(self, radio_instance=None, *args, **kwargs):
-        self._radio = radio_instance
-        super(_EndpointBase, self).__init__(*args, **kwargs)
-
-    def serialize(self):
-        return buffer(self)[:]
-
-    def deserialize(self, data):
-        fit = min(len(data), ctypes.sizeof(self))
-        ctypes.memmove(ctypes.addressof(self), data, fit)
-
-
-class Endpoint(_EndpointBase):
-    _pack_ = 1
-    _fields_ = [
-        ('link_id', ctypes.c_ubyte),
-        ('address', ctypes.c_uint32),
-        ('_link_ok', ctypes.c_ubyte, 1),
-        ('_rainsensor', ctypes.c_ubyte, 1),
-        # ('__unusedstatusbits', ctypes.c_ubyte, 6),
-        ('outputs', ctypes.c_ubyte),
-        ('device_type', ctypes.c_ubyte, 4),
-        ('valves', ctypes.c_ubyte, 4),
-        ('_voltage', ctypes.c_ubyte),
-        ('current', ctypes.c_uint16),
-        ('temperature', ctypes.c_ubyte),
-        ('rssi1', ctypes.c_byte),
-        ('rssi2', ctypes.c_byte),
-        ('__unused2', ctypes.c_uint16)
-    ]
-
-    @property
-    def voltage(self):
-        return (self._voltage * 128) / 1000.0
-
-    @property
-    def link_ok(self):
-        return True if self._link_ok else False
-
-    @property
-    def rainsensor(self):
-        return True if self._rainsensor else False
-
-    def __repr__(self):
-        return '{0.__class__.__name__}(' \
-               'address={0.address:#010x}, ' \
-               'link_id={0.link_id:}, ' \
-               'link_ok={0.link_ok:}, ' \
-               'rainsensor={0.rainsensor:}, ' \
-               'outputs={0.outputs:#04x}, ' \
-               'valves={0.valves}, ' \
-               'voltage={0.voltage:}, ' \
-               'current={0.current:}, ' \
-               'temperature={0.temperature:}, ' \
-               'rssi1={0.rssi1:}, ' \
-               'rssi2={0.rssi2:}' \
-               ')'.format(self)
-
-    def as_dict(self):
-        d = OrderedDict([(k, getattr(self, k))
-                        for k in ['address', 'link_id', 'link_ok', 'rainsensor', 'outputs', 'valves',
-                                  'voltage', 'current', 'temperature', 'rssi1', 'rssi2']])
-        return d
-
-
-class EndpointStatusTable(_EndpointBase):
-    _pack_ = 1
-    _fields_ = [
-        ('est', Endpoint * 48)
-    ]
-
-
-# class Endpoint(namedtuple('Endpoint',
-#                           'link_id, address, link_ok, valves, acdc_type, rainsensor, short, open, batt, rssi1, rssi2')):
-#     """Radio endpoint deivce. Encoded as a usable object"""
-#
-#     struct_format = '<BI7B2b'  # Used in struct.unpack_from
-#     binary_size = 16           # Size in bytes of the packed structure
-#
-#     radio_instance = None
-#
-#     @classmethod
-#     def make(cls, buf, offset=0, radio_instance=None):
-#         ep = Endpoint._make(struct.unpack_from(Endpoint.struct_format, buf, offset))
-#         ep.radio_instance = radio_instance
-#         return ep
-#
-#     def __repr__(self):
-#         return '{0.__class__.__name__}('            \
-#                'address={0.address:#010x}, '        \
-#                'link_id={0.link_id:}, '             \
-#                'link_ok={0.link_ok:#04x}, '         \
-#                'valves={0.valves}, '                \
-#                'acdc_type={0.acdc_type:02d}, '      \
-#                'rainsensor={0.rainsensor:#010b}, '  \
-#                'short={0.short:#010b}, '            \
-#                'open={0.open:#04x}, '               \
-#                'batt={0.batt:#04x}, '               \
-#                'rssi1={0.rssi1:}, '                 \
-#                'rssi2={0.rssi2:}'                   \
-#                ')'.format(self)
 
 def binfmt(data):
     return ' '.join(['0b{:08b}'.format(x) for x in data])
