@@ -3,6 +3,12 @@ $def with(endpoints)
 $var title: RADIO
 $var page: plugins
 
+<style type="text/css">
+    .voltage_error {
+        background: red;
+    }
+</style>
+
 <div id="plugin">
     <div class="title">Radio Status</div>
     <form id="pluginForm" action="/#" method="get">
@@ -30,7 +36,14 @@ $var page: plugins
             <td>$endpoint.link_ok</td>
             <td>$endpoint.rainsensor</td>
             <td>$'{:#010b}'.format(endpoint.outputs)</td>
-            <td>$'{:4.2f}'.format(endpoint.voltage) V</td>
+            $ voltage_style = ''
+            $if endpoint.type=='24':
+                $if endpoint.voltage < 19 or endpoint.voltage > 28:
+                    $ voltage_style = 'voltage_error'
+            $elif endpoint.type=='9':
+                $if endpoint.voltage < 6.8 or endpoint.voltage > 11:
+                    $ voltage_style = 'voltage_error'
+            <td class="${voltage_style}">$'{:4.2f}'.format(endpoint.voltage) V</td>
             <td>$endpoint.current mA</td>
             <td>$endpoint.temperature °C</td>
             <td>$endpoint.rssi1</td>
