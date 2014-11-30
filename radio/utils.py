@@ -1,8 +1,5 @@
 # coding=utf-8
 
-__author__ = 'teodoryantcheff'
-
-
 import threading
 from functools import wraps
 

@@ -1,7 +1,5 @@
 # coding=utf-8
 
-__author__ = 'teodoryantcheff'
-
 import time
 import ctypes
 import sys
@@ -19,10 +17,13 @@ except:
     SpiDev = object
 
 
-# TODO fix logging
-logging.basicConfig(format='%(levelname)s:%(message)s',
-                    stream=sys.stderr,
-                    level=logging.DEBUG)
+logger = logging.getLogger('radio')
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('%(name)s:%(levelname)s:%(message)s'))
+#handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
+logger.addHandler(handler)
 
 
 class SpiRadio(SpiDev):
@@ -38,7 +39,7 @@ class SpiRadio(SpiDev):
     def __init__(self, *args, **kwargs):
         super(SpiRadio, self).__init__()
 
-        logging.debug('SpiRadio __init__: speed:{} mode:{}'.format(self.max_speed_hz, self.mode))
+        logger.debug('SpiRadio __init__: speed:{} mode:{}'.format(self.max_speed_hz, self.mode))
         self.open(*args, **kwargs)  # TODO: exception handling if open fails
         self.max_speed_hz = self._BUS_SPEED  # set bus speed
         self.mode = 3  # set Clock Polarity and Phase
@@ -53,21 +54,21 @@ class SpiRadio(SpiDev):
         return
 
     def get_netconfig_size(self):
-        #logging.debug('get_netconfig_size')
+        #logger.debug('get_netconfig_size')
         self.writebytes([0x55, 0x12])  # Command Get network config table size
         lsb, msb = self.readbytes(2)  # Read lsb, msb of size response
         self._netconfig_table_size = msb * 256 + lsb
         return self._netconfig_table_size
 
     def get_status_size(self):
-        #logging.debug('get_status_size')
+        #logger.debug('get_status_size')
         self.writebytes([0x55, 0x10])  # Command Get status table size
         lsb, msb = self.readbytes(2)  # Read lsb, msb of size response
         self._status_table_size = msb * 256 + lsb
         return self._status_table_size
 
     def get_netconfig(self):
-        logging.debug('get_netconfig')
+        logger.debug('get_netconfig')
         if not self._netconfig_table_size:
             self.get_netconfig_size()  # How many bytes to read back
 
@@ -76,13 +77,13 @@ class SpiRadio(SpiDev):
         # return array.array('B', self.readbytes(to_read))
 
     def set_netconfig(self, config):
-        # logging.debug('set_netconfig')
+        # logger.debug('set_netconfig')
         self.writebytes([0x55, 0x04])
         self.writebytes(list(bytearray(config)))
         return
 
     def get_status(self):
-        logging.debug('get_status')
+        logger.debug('get_status')
         if not self._status_table_size:
             self.get_status_size()  # How many bytes to read back
 
@@ -96,7 +97,7 @@ class SpiRadio(SpiDev):
                                     bit = 0 -> OFF
                                xx - LinkID  на крайното у-о
         """
-        logging.debug('set_outputs: lid: {} output: {:#04x}'.format(link_id, output_state))
+        logger.debug('set_outputs: lid: {} output: {:#04x}'.format(link_id, output_state))
         self.writebytes([0x55, 0x06, link_id, output_state])  # Command Set output
         return
 
@@ -106,7 +107,7 @@ class SpiRadio(SpiDev):
                                   - 0000 0010 - Normal Closed type
                                xx - LinkID  на крайното у-о
         """
-        logging.debug('set_rainsensor: lid: {} type: {:#04x}'.format(link_id, rainsensor_type))
+        logger.debug('set_rainsensor: lid: {} type: {:#04x}'.format(link_id, rainsensor_type))
         self.writebytes([0x55, 0x08, link_id, rainsensor_type])  # Command Set output
         return self.readbytes(1)
 
@@ -160,7 +161,7 @@ class OSPyRadio(object):
 
     @guarded
     def set_endpoint_outputs(self, ep_address, output_state):
-        logging.debug('Setting outputs of {:#010x} to {:#04x}'.format(ep_address, output_state))
+        # logger.debug('Setting outputs of {:#010x} to {:#04x}'.format(ep_address, output_state))
         # Find link id for endpoint having ep_address
         link_id = None  # link_id of the endpoint having ep_address
         for ep in self.get_endpoints():
@@ -178,21 +179,21 @@ class OSPyRadio(object):
                                                            self._radio.set_outputs, (link_id, output_state))
             self._output_timers[link_id].start()
         else:
-            logging.error('{:#010x} not connected !'.format(ep_address))
+            logger.error('{:#010x} not connected !'.format(ep_address))
 
     @guarded
-    def start_valve(self, ep_address, valve_num):
+    def start_output(self, ep_address, output_num):
         try:
-            self._endpoints_output_cache[ep_address] |= (0x01 << valve_num)
+            self._endpoints_output_cache[ep_address] |= (0x01 << output_num)
         except:
-            self._endpoints_output_cache[ep_address] = (0x01 << valve_num)
+            self._endpoints_output_cache[ep_address] = (0x01 << output_num)
 
         self.set_endpoint_outputs(ep_address, self._endpoints_output_cache[ep_address])
 
     @guarded
-    def stop_valve(self, ep_address, valve_num):
+    def stop_output(self, ep_address, output_num):
         try:
-            self._endpoints_output_cache[ep_address] &= ~(0x01 << valve_num)
+            self._endpoints_output_cache[ep_address] &= ~(0x01 << output_num)
         except:
             self._endpoints_output_cache[ep_address] = 0
 
@@ -213,7 +214,7 @@ def test_lowlevel():
 
     print 'DEVICE RESET'
     radio.reset_device()
-    logging.debug('Sleep 2')
+    logger.debug('Sleep 2')
     time.sleep(2)
 
     # print 'nc size:', radio.get_netconfig_size()
@@ -222,7 +223,7 @@ def test_lowlevel():
     #     nconf.write(bytearray(nc))
     # print 'Written to file'
 
-    # logging.debug('waiting 5 to restore net config...')
+    # logger.debug('waiting 5 to restore net config...')
     # time.sleep(5)
     #
     # with open('./data/netconf.bin', 'rb') as nconf:
@@ -281,16 +282,16 @@ def test_lowlevel():
 
 
 def test_higherlevel():
-    logging.debug('Init')
+    logger.debug('Init')
     ospy_radio = OSPyRadio.get_instance()
-    logging.debug('Reset')
+    logger.debug('Reset')
     ospy_radio.reset_radio()
-    logging.debug('Endpoints:')
+    logger.debug('Endpoints:')
     for e in ospy_radio.get_endpoints():
         if e.link_id:
             print e.as_dict()
 
-    logging.debug('Set outs')
+    logger.debug('Set outs')
     ospy_radio.set_endpoint_outputs(0x12345677, 0x11)
     ospy_radio.set_endpoint_outputs(0x12345677, 0x22)
     ospy_radio.set_endpoint_outputs(0x12345677, 0x33)

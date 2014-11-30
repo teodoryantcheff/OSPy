@@ -1,7 +1,5 @@
 # coding=utf-8
 
-__author__ = 'teodoryantcheff'
-
 import ctypes
 from collections import OrderedDict
 
@@ -28,7 +26,7 @@ class Endpoint(_EndpointBase):
         ('_rainsensor', ctypes.c_ubyte, 1),
         # ('__unusedstatusbits', ctypes.c_ubyte, 6),
         ('outputs', ctypes.c_ubyte),
-        ('device_type', ctypes.c_ubyte, 4),
+        ('_type', ctypes.c_ubyte, 4),
         ('valves', ctypes.c_ubyte, 4),
         ('_voltage', ctypes.c_ubyte),
         ('current', ctypes.c_uint16),
@@ -50,6 +48,15 @@ class Endpoint(_EndpointBase):
     def rainsensor(self):
         return True if self._rainsensor else False
 
+    @property
+    def type(self):
+        if self._type == 1:
+            return '9'
+        elif self._type == 2:
+            return '24'
+        else:
+            return self._type
+
     def __repr__(self):
         return '{0.__class__.__name__}(' \
                'address={0.address:#010x}, ' \
@@ -57,6 +64,7 @@ class Endpoint(_EndpointBase):
                'link_ok={0.link_ok:}, ' \
                'rainsensor={0.rainsensor:}, ' \
                'outputs={0.outputs:#04x}, ' \
+               'type={0.type}, ' \
                'valves={0.valves}, ' \
                'voltage={0.voltage:}, ' \
                'current={0.current:}, ' \
@@ -67,8 +75,8 @@ class Endpoint(_EndpointBase):
 
     def as_dict(self):
         d = OrderedDict([(k, getattr(self, k))
-                        for k in ['address', 'link_id', 'link_ok', 'rainsensor', 'outputs', 'valves',
-                                  'voltage', 'current', 'temperature', 'rssi1', 'rssi2']])
+                        for k in ['address', 'link_id', 'link_ok', 'rainsensor', 'outputs', 'type',
+                                  'valves', 'voltage', 'current', 'temperature', 'rssi1', 'rssi2']])
         return d
 
 

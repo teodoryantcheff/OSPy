@@ -5,14 +5,15 @@ $var page: plugins
 
 <div id="plugin">
     <div class="title">Radio Status</div>
-    <form id="pluginForm" action="/TODO" method="get">
+    <form id="pluginForm" action="/#" method="get">
       <table class="logList">
           <tr class="log_rec">
             <th>Address</th>
             <th>Link ID</th>
+            <th>Type</th>
+            <th>Valves</th>
             <th>Link OK</th>
             <th>Rainsensor</th>
-            <th>Valves</th>
             <th>Outputs</th>
             <th>V</th>
             <th>A</th>
@@ -24,9 +25,10 @@ $var page: plugins
           <tr class="log_rec ${loop.parity}">
             <td>$'{:#010x}'.format(endpoint.address)</td>
             <td>$endpoint.link_id</td>
+            <td>$endpoint.type</td>
+            <td>$endpoint.valves</td>
             <td>$endpoint.link_ok</td>
             <td>$endpoint.rainsensor</td>
-            <td>$endpoint.valves</td>
             <td>$'{:#010b}'.format(endpoint.outputs)</td>
             <td>$'{:4.2f}'.format(endpoint.voltage) V</td>
             <td>$endpoint.current mA</td>

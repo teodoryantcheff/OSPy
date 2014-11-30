@@ -31,15 +31,33 @@ class RadioStations(_BaseStations):
             (0x12345678, 7),
         ]
 
+        # TODO Save mapping and endpoint names
+        self.endpoint_names = {
+            0x12345677: 'Radio edno da go eba',
+            0x12345678: 'Radio dve.. da go eba'
+        }
+
         super(RadioStations, self).__init__(*args)
+
+    def get_endpoint_name(self, address):
+        return self.endpoint_names.get(address, '<NO NAME>')
+
+    def set_endpoint_name(self, address, name):
+        self.endpoint_names[address] = name
+
+    def get_endoint_mapping(self, index):
+        return self.stations_mapping[index]
+
+    def set_endoint_mapping(self, index, ep_idx):
+        self.stations_mapping[index] = ep_idx
 
     def _activate(self):
         for index, station in enumerate(self._stations):
             ep_address, valve_index = self.stations_mapping[index]
             if station.active:
-                self.radio.start_valve(ep_address, valve_index)
+                self.radio.start_output(ep_address, valve_index)
             else:
-                self.radio.stop_valve(ep_address, valve_index)
+                self.radio.stop_output(ep_address, valve_index)
 
     def resize(self, count):
         super(RadioStations, self).resize(count)
