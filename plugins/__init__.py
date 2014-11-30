@@ -76,7 +76,7 @@ def plugin_name(plugin):
 
 
 def plugin_names():
-    return {plugin: (plugin_name(plugin) or plugin) for plugin in available()}
+    return {plugin: (plugin_name(plugin)) for plugin in available() if plugin_name(plugin)}
 
 
 def plugin_url(cls):

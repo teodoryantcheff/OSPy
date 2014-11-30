@@ -1,17 +1,17 @@
-$def with(sysinfo)
+$def with(overview)
 
 $var title: System Information
 $var page: plugins
 
 <div id="plugin">
-    <div class="title">System information</div>
-    <p>This plugin print system informations from OS.</p>
-    <form id="pluginForm" action="/info" method="get">
-        <table class="InfoList">
+    <div class="title">System Information</div>
+    <p>This plugin prints all available system information.</p>
+    <form id="pluginForm">
+        <table class="optionList">
             <tr>
                 <td style='text-transform: none;'>Status:</td>
                 <td>
-                    <textarea style="font-family: monospace;" rows="12" cols="100" readonly>$sysinfo</textarea><br/>
+                    <textarea style="font-family: monospace;" rows="12" cols="100" readonly>$'\n'.join(overview)</textarea><br/>
                 </td>
             </tr>
         </table>

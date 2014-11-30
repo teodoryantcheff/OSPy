@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-# System information plugin
+# this plugins print system info os on web 
 
 import platform
+from collections import OrderedDict
 
 import helpers
 from webpages import ProtectedPage
-
+from options import options
 
 NAME = 'System Information'
 LINK = 'status_page'
@@ -17,9 +18,33 @@ LINK = 'status_page'
 def start():
     pass
 
+stop = start
 
-def stop():
-    pass
+
+def get_overview():
+    """Returns the info data as a list of lines."""
+    result = []
+
+    meminfo = helpers.get_meminfo()
+    netdevs = helpers.get_netdevs()
+    
+    result.append('System release: ' + platform.release())
+    result.append('System name:    ' + platform.system())
+    result.append('Node:           ' + platform.node())
+    result.append('Machine:        ' + platform.machine())
+    result.append('Distribution:   ' + (platform.linux_distribution()[0]) + ' ' + (platform.linux_distribution()[1]))
+    result.append('Total memory:   ' + meminfo['MemTotal'])
+    result.append('Free memory:    ' + meminfo['MemFree'])
+    if netdevs:
+        for dev, info in netdevs.iteritems():
+            result.append('%-16s %s MiB %s MiB' % (dev + ':', info['rx'], info['tx']))
+    else:
+        result.append('Network:        Information unavailable')
+    result.append('Uptime:         ' + helpers.uptime())
+    result.append('CPU temp:       ' + helpers.get_cpu_temp(options.temp_unit) + ' ' + options.temp_unit)
+    result.append('MAC adress:     ' + helpers.get_mac())
+
+    return result
 
 
 ################################################################################
@@ -29,28 +54,4 @@ class status_page(ProtectedPage):
     """Load an html page"""
 
     def GET(self):
-        sysinfo = ''
-        sysinfo += 'System release: ' + platform.release()
-        sysinfo += '\nSystem name: ' + platform.system()
-        sysinfo += '\nNode: ' + platform.node()
-        sysinfo += '\nMachine: ' + platform.machine()
-        sysinfo += '\nDistribution: ' + platform.linux_distribution()[0] + ' ' + platform.linux_distribution()[1]
-        meminfo = helpers.get_meminfo()
-        if not meminfo:
-            meminfo = {
-                'MemTotal': 'unknown',
-                'MemFree': 'unknown'
-            }
-        sysinfo += '\nTotal memory: {0}'.format(meminfo['MemTotal'])
-        sysinfo += '\nFree memory: {0}'.format(meminfo['MemFree'])
-        netdevs = helpers.get_netdevs()
-        if netdevs:
-            for dev in netdevs.keys():
-                sysinfo += '\n{0}: {1} MiB {2} MiB'.format(dev, netdevs[dev].rx, netdevs[dev].tx)
-        else:
-            sysinfo += '\nUnable to read network device data'
-        sysinfo += '\nUptime: ' + helpers.uptime()
-        sysinfo += '\nCPU temp: ' + helpers.get_cpu_temp() + 'C'
-        sysinfo += '\nMAC adress: ' + helpers.get_mac()
-
-        return self.template_render.plugins.system_info(sysinfo)
+        return self.template_render.plugins.system_info(get_overview())

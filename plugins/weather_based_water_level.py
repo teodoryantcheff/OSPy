@@ -318,6 +318,8 @@ def stop():
         checker.stop()
         checker.join()
         checker = None
+    if NAME in level_adjustments:
+        del level_adjustments[NAME]
 
 
 ################################################################################

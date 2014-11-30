@@ -3,6 +3,7 @@
 
 import time
 from threading import Thread, Event
+import datetime
 
 import web
 from log import log
@@ -20,6 +21,12 @@ plugin_options = PluginOptions(
     {
         key: 100 for key in range(12)
     })
+
+
+def _sleep_time():
+    """Calculates how long to sleep until just after midnight."""
+    now = datetime.datetime.now()
+    return 5 + 3600*24 - (now.second + now.minute*60 + now.hour*3600)
 
 
 class MonthChecker(Thread):
@@ -49,7 +56,7 @@ class MonthChecker(Thread):
             level_adjustments[NAME] = plugin_options[month]/100.0  # Set the water level% (levels list is zero based).
             log.debug(NAME, 'Monthly Adjust: Setting water level to %d%%' % plugin_options[month])
 
-            self._sleep(3600)
+            self._sleep(_sleep_time())
 
 
 checker = None
@@ -67,6 +74,8 @@ def stop():
         checker.stop()
         checker.join()
         checker = None
+    if NAME in level_adjustments:
+        del level_adjustments[NAME]
 
 
 class settings_page(ProtectedPage):

@@ -381,7 +381,7 @@ class toggle_temp_page(ProtectedPage):
     def GET(self):
         qdict = web.input()
         options.temp_unit = "F" if qdict['tunit'] == "C" else "C"
-        raise web.seeother('/')
+        raise web.seeother(qdict.get('url', '/'))
 
 ################################################################################
 # APIs                                                                         #

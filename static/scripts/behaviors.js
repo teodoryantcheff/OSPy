@@ -34,8 +34,7 @@ jQuery(document).ready(function(){
             jQuery(this).toggleClass("bluebg",false);
         })
         .click(function() {
-            jQuery("input[name='tunit']").val(tempunit);
-            jQuery("form[name='tt']").submit();
+            window.location = '/ttu?tunit=' + tempunit + '&url=' + encodeURIComponent(window.location);
         });
     var temp = parseFloat(cputemp);
     if (isNaN(temp)) {

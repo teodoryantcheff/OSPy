@@ -12,7 +12,6 @@ import subprocess
 import time
 import errno
 from threading import Thread
-from collections import namedtuple
 
 # Local imports
 import web
@@ -106,10 +105,9 @@ def get_ip():
 def get_mac():
     """Retrun MAC from file"""
     try:
-        myMAC = open('/sys/class/net/eth0/address').read()
-        return str(myMAC)
-    except:
-        return str('none')
+        return str(open('/sys/class/net/eth0/address').read())
+    except Exception:
+        return 'Unknown'
 
 
 def get_meminfo():
@@ -120,8 +118,11 @@ def get_meminfo():
             for line in f:
                 meminfo[line.split(':')[0]] = line.split(':')[1].strip()
         return meminfo
-    except:
-        return None
+    except Exception:
+        return {
+            'MemTotal': 'Unknown',
+            'MemFree': 'Unknown'
+        }
 
 
 def get_netdevs():
@@ -130,15 +131,14 @@ def get_netdevs():
         with open('/proc/net/dev') as f:
             net_dump = f.readlines()
         device_data = {}
-        data = namedtuple('data', ['rx', 'tx'])
         for line in net_dump[2:]:
             line = line.split(':')
             if line[0].strip() != 'lo':
-                device_data[line[0].strip()] = data(float(line[1].split()[0])/(1024.0*1024.0),
-                                                    float(line[1].split()[8])/(1024.0*1024.0))
+                device_data[line[0].strip()] = {'rx': float(line[1].split()[0])/(1024.0*1024.0),
+                                                'tx': float(line[1].split()[8])/(1024.0*1024.0)}
         return device_data
-    except:
-        return None
+    except Exception:
+        return {}
 
 
 def get_cpu_temp(unit=None):
