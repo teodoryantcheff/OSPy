@@ -25,16 +25,20 @@ class RadioStations(_BaseStations):
             (0x12345677, 2),
             (0x12345677, 3),
 
-            (0x12345678, 4),
-            (0x12345678, 5),
-            (0x12345678, 6),
-            (0x12345678, 7),
+            (0x12345674, 0),
+            (0x12345674, 1),
+            (0x12345674, 2),
+            (0x12345674, 3),
+            (0x12345674, 4),
+            (0x12345674, 5),
+            (0x12345674, 6),
+            (0x12345674, 7),
         ]
 
         # TODO Save mapping and endpoint names
         self.endpoint_names = {
             0x12345677: 'Radio edno da go eba',
-            0x12345678: 'Radio dve.. da go eba'
+            0x12345674: 'Radio dve.. da go eba'
         }
 
         super(RadioStations, self).__init__(*args)
@@ -46,14 +50,18 @@ class RadioStations(_BaseStations):
         self.endpoint_names[address] = name
 
     def get_endoint_mapping(self, index):
-        return self.stations_mapping[index]
+        try:
+            m = self.stations_mapping[index]
+        except:
+            m = (0, 0)
+        return m
 
     def set_endoint_mapping(self, index, ep_idx):
         self.stations_mapping[index] = ep_idx
 
     def _activate(self):
-        for index, station in enumerate(self._stations):
-            ep_address, valve_index = self.stations_mapping[index]
+        for index, station in enumerate(self.enabled_stations()):
+            ep_address, valve_index = self.get_endoint_mapping(index)
             if station.active:
                 self.radio.start_output(ep_address, valve_index)
             else:

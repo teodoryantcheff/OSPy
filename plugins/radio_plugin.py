@@ -2,17 +2,16 @@
 
 __author__ = 'teodoryantcheff'
 
-"""
- TODO endpoint names
- TODO fix logging
- TODO Docs and comments
- TODO Mapping config stations to endpoints
- TODO Callbacks on endpoint events
- TODO rainsensor status injection
- TODO multiple rainsensors
- TODO https
- TODO css redo
-"""
+# TODO stations list resizing
+# TODO endpoint names
+# TODO fix logging
+# TODO Docs and comments
+# TODO Mapping config stations to endpoints
+# TODO Callbacks on endpoint events
+# TODO rainsensor status injection
+# TODO multiple rainsensors
+# TODO https
+# TODO css redo
 
 try:
     import simplejson as json

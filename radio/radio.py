@@ -114,8 +114,8 @@ class SpiRadio(SpiDev):
 
 class OSPyRadio(object):
 
-    ENDPOINT_CACHE_TIME = 500  # milliseconds
-    SETOUTPUT_DEBOUNCE_TIME = 150  # milliseconds
+    ENDPOINT_CACHE_TIME = 1000  # milliseconds
+    SETOUTPUT_DEBOUNCE_TIME = 500  # milliseconds
 
     __instance = None
 
