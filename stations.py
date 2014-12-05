@@ -269,10 +269,10 @@ class _BBBStations(_ShiftStations):
 
 
 from stations_radio import RadioStations
-stations = RadioStations(4)
+stations = RadioStations(options.output_count)
 
 # try:
-#     stations = _RPiStations(options.output_count)
+#     stations = _RPiStations()
 # except Exception:
 #     try:
 #         stations = _BBBStations(options.output_count)

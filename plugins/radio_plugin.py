@@ -2,7 +2,9 @@
 
 __author__ = 'teodoryantcheff'
 
-# TODO stations list resizing
+
+# TODO run under apache
+# TODO https
 # TODO endpoint names
 # TODO fix logging
 # TODO Docs and comments
@@ -10,7 +12,6 @@ __author__ = 'teodoryantcheff'
 # TODO Callbacks on endpoint events
 # TODO rainsensor status injection
 # TODO multiple rainsensors
-# TODO https
 # TODO css redo
 
 try:
