@@ -3,16 +3,84 @@ $def with(endpoints)
 $var title: RADIO
 $var page: plugins
 
+$# Table auto-refresh interval in miliseconds
+$ refreshInterval = 2000
+
 <style type="text/css">
     .voltage_error {
         background: red;
     }
 </style>
 
+<script>
+(function() {
+    function updateEndpoints() {
+        var start = new Date();
+        //console.log('Button JSON clicked');
+        var jqxhr = jQuery.getJSON('/p/radio_plugin/status.json', function (data) {
+            jQuery('#endpointsTable > tbody > tr').remove();  // Clear current table contents
+            //data = jQuery.grep(data, function (ep, i) {return ep.link_ok});
+            jQuery.each(data, function (i, endpoint) {
+              if (endpoint.link_ok) {  // display only connected endpoints
+                // Voltage warnings
+                var voltage_style = '';
+                if (endpoint.type === '24') {  // 24V valve
+                    if (endpoint.voltage < 19 || endpoint.voltage > 28) voltage_style = 'voltage_error';
+                } else {  // 9V valve
+                    if (endpoint.voltage < 6.8 || endpoint.voltage > 11) voltage_style = 'voltage_error';
+                }
+
+                jQuery('<tr>').append(
+                    jQuery('<td>').text('0x' + endpoint.address.toString(16)),
+                    jQuery('<td>').text(endpoint.link_id),
+                    jQuery('<td>').text(endpoint.type),
+                    jQuery('<td>').text(endpoint.valves),
+                    jQuery('<td>').text(endpoint.link_ok),
+                    jQuery('<td>').text(endpoint.rainsensor),
+                    jQuery('<td>').text('0b' + endpoint.outputs.toString(2)),  // TODO icons per output
+                    jQuery('<td>').text(endpoint.voltage.toFixed(2) + ' V').addClass(voltage_style),
+                    jQuery('<td>').text(endpoint.current + ' mA'),
+                    jQuery('<td>').text(endpoint.temperature + ' °C'),
+                    jQuery('<td>').text(endpoint.rssi1),
+                    jQuery('<td>').text(endpoint.rssi2)
+                ).appendTo('#endpointsTable > tbody');
+              }
+            })
+            jQuery("#endpointsTable > tbody > tr:even").addClass("even");  //  odd/even row coloring
+        }).fail(function () {
+            console.error('error');
+        }).always(function () {
+            console.debug('Status update completed in', new Date() - start, 'ms');
+            setTimeout(updateEndpoints, ${refreshInterval});  // Hook next call
+        });
+    }
+
+    // Initialize behaviors
+    jQuery(document).ready(function () {
+
+        jQuery('button#btnResetRadio').click(function () {
+            console.debug('Radio reset');
+        });
+
+        jQuery('#cSubmit').click(function () {
+            jQuery('#stationsForm').submit();
+        });
+
+        jQuery('button#cCancel').click(function () {
+            window.location = '/';
+        });
+
+        updateEndpoints();  // Initially get the table. auto hooks a call in refreshInterval millis
+    });
+})();
+</script>
+
 <div id="plugin">
     <div class="title">Radio Status</div>
+    <p style="color: red;">Auto refreshes every ${refreshInterval / 1000} seconds.</p>
     <form id="pluginForm" action="/#" method="get">
-      <table class="logList">
+      <table class="logList" id="endpointsTable">
+          <thead>
           <tr class="log_rec">
             <th>Address</th>
             <th>Link ID</th>
@@ -27,28 +95,36 @@ $var page: plugins
             <th>RSSI1</th>
             <th>RSSI2</th>
           </tr>
-      $for endpoint in [e for e in endpoints if e.link_id]:
-          <tr class="log_rec ${loop.parity}">
-            <td>$'{:#010x}'.format(endpoint.address)</td>
-            <td>$endpoint.link_id</td>
-            <td>$endpoint.type</td>
-            <td>$endpoint.valves</td>
-            <td>$endpoint.link_ok</td>
-            <td>$endpoint.rainsensor</td>
-            <td>$'{:#010b}'.format(endpoint.outputs)</td>
-            $ voltage_style = ''
-            $if endpoint.type=='24':
-                $if endpoint.voltage < 19 or endpoint.voltage > 28:
-                    $ voltage_style = 'voltage_error'
-            $elif endpoint.type=='9':
-                $if endpoint.voltage < 6.8 or endpoint.voltage > 11:
-                    $ voltage_style = 'voltage_error'
-            <td class="${voltage_style}">$'{:4.2f}'.format(endpoint.voltage) V</td>
-            <td>$endpoint.current mA</td>
-            <td>$endpoint.temperature °C</td>
-            <td>$endpoint.rssi1</td>
-            <td>$endpoint.rssi2</td>
-          </tr>
+          </thead>
+          <tbody></tbody>
+$#      $for endpoint in [e for e in endpoints if e.link_id]:
+$#          <tr class="log_rec ${loop.parity}">
+$#            <td>$'{:#010x}'.format(endpoint.address)</td>
+$#            <td>$endpoint.link_id</td>
+$#            <td>$endpoint.type</td>
+$#            <td>$endpoint.valves</td>
+$#            <td>$endpoint.link_ok</td>
+$#            <td>$endpoint.rainsensor</td>
+$#            <td>$'{:#010b}'.format(endpoint.outputs)</td>
+$#            $ voltage_style = ''
+$#            $if endpoint.type == '24':
+$#                $if endpoint.voltage < 19 or endpoint.voltage > 28:
+$#                    $ voltage_style = 'voltage_error'
+$#            $elif endpoint.type == '9':
+$#                $if endpoint.voltage < 6.8 or endpoint.voltage > 11:
+$#                    $ voltage_style = 'voltage_error'
+$#            <td class="${voltage_style}">$'{:4.2f}'.format(endpoint.voltage) V</td>
+$#            <td>$endpoint.current mA</td>
+$#            <td>$endpoint.temperature °C</td>
+$#            <td>$endpoint.rssi1</td>
+$#            <td>$endpoint.rssi2</td>
+$#          </tr>
       </table>
     </form>
+</div>
+
+<div id="controls">
+    <button id="btnResetRadio" class="refresh">Reset Radio (does not work yet)</button>
+    <!--<button id="json" class="submit">json status</button>-->
+    <!--<button id="cCancel" class="cancel danger">Cancel</button>-->
 </div>
