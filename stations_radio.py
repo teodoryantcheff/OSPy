@@ -33,6 +33,11 @@ class RadioStations(_BaseStations):
             (0x12345674, 5),
             (0x12345674, 6),
             (0x12345674, 7),
+
+            (0x12345672, 0),
+            (0x12345672, 1),
+            (0x12345672, 2),
+            (0x12345672, 3),
         ]
 
         # TODO Save mapping and endpoint names
