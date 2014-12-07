@@ -4,11 +4,15 @@ $var title: RADIO
 $var page: plugins
 
 $# Table auto-refresh interval in miliseconds
-$ refreshInterval = 2000
+$ refreshInterval = 3000
 
 <style type="text/css">
     .voltage_error {
-        background: red;
+        background: #7D1921;
+    }
+
+    #refreshLight {
+        color: #cd5157;
     }
 </style>
 
@@ -19,6 +23,7 @@ $ refreshInterval = 2000
         //console.log('Button JSON clicked');
         var jqxhr = jQuery.getJSON('/p/radio_plugin/status.json', function (data) {
             jQuery('#endpointsTable > tbody > tr').remove();  // Clear current table contents
+            jQuery('#refreshLight').fadeIn(500);
             //data = jQuery.grep(data, function (ep, i) {return ep.link_ok});
             jQuery.each(data, function (i, endpoint) {
               if (endpoint.link_ok) {  // display only connected endpoints
@@ -50,6 +55,7 @@ $ refreshInterval = 2000
         }).fail(function () {
             console.error('error');
         }).always(function () {
+            jQuery('#refreshLight').fadeOut(100);
             console.debug('Status update completed in', new Date() - start, 'ms');
             setTimeout(updateEndpoints, ${refreshInterval});  // Hook next call
         });
@@ -59,7 +65,7 @@ $ refreshInterval = 2000
     jQuery(document).ready(function () {
 
         jQuery('button#btnResetRadio').click(function () {
-            console.debug('Radio reset');
+            console.info('radio reset');
         });
 
         jQuery('#cSubmit').click(function () {
@@ -76,8 +82,11 @@ $ refreshInterval = 2000
 </script>
 
 <div id="plugin">
-    <div class="title">Radio Status</div>
-    <p style="color: red;">Auto refreshes every ${refreshInterval / 1000} seconds.</p>
+    <div class="title">
+        Radio Status
+        <span id="refreshLight">&bullet;</span>
+    </div>
+    $# <p style="color: red;">Auto refreshes every ${refreshInterval / 1000} seconds.</p>
     <form id="pluginForm" action="/#" method="get">
       <table class="logList" id="endpointsTable">
           <thead>
