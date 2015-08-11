@@ -1,0 +1,23 @@
+$def with (docs)
+
+$var title: Help
+$var page: help
+
+
+<script src="/static/scripts/help.js"></script>
+<div id="help">
+    <div class="title">Help</div>
+    <div id="help_container" class="simpleblock">
+        <div id="help_menu">
+            $for index, doc_entry in enumerate(docs):
+                $if len(doc_entry) > 2:
+                    <p class="help_link_${doc_entry[0]}"><a href="#${index}">${doc_entry[1]}</a></p>
+                $else:
+                    <b><p class="help_link_${doc_entry[0]}">${doc_entry[1]}</p></b>
+
+        </div>
+        <div id="help_contents">
+
+        </div>
+    </div>
+</div>

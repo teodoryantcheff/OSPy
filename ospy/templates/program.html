@@ -1,0 +1,193 @@
+$def with (program)
+
+$var title: Modify Program
+$var page: programs
+
+<script>
+    $for index, name in ProgramType.NAMES.iteritems():
+        var ${name} = ${index};
+    var repeat_days = ${program.repeat_days()}
+    var program_delay = ${program_delay(program)}
+
+    jQuery(document).ready(function(){
+        create_custom_schedule(${int(program.modulo/1440)});
+        update_schedules();
+    });
+</script>
+<script src="/static/scripts/intervalSelect.js"></script>
+<script src="/static/scripts/program.js"></script>
+<div id="programs">
+    <div class="title">${"Add a New Program" if program.index < 0 else "Edit Program #" + str(program.index+1)}</div>
+    <form name="programForm" id="programForm" method="post">
+        <input type="hidden" name="index" value="${program.index}">
+        <input type="hidden" id="stations" name="stations" value="${program.stations}">
+
+        <div class="simpleblock">
+            <div style="display: inline-block; box-sizing: border-box; vertical-align: top; min-width: 50%">
+                <div class='option' style="white-space: nowrap">
+                    <span class="program_label">Name:</span>
+                    <input name="name" type="text" value="${program.name}" style="width: 140px">
+                </div>
+
+                <div class='option' style="white-space: nowrap">
+                    <span class="program_label">Enabled:</span>
+                    <input name="enabled" type="checkbox" ${'checked' if program.enabled else ''}>
+                </div>
+
+                <div class='option' style="white-space: nowrap">
+                    <span class="program_label">Schedule type:</span>
+                    <select id="schedule_type" name="schedule_type" style="width: 140px">
+                        $for value in sorted(ProgramType.FRIENDLY_NAMES.keys()):
+                            <option value="${value}" ${'selected' if program.type == value else ''}>${ProgramType.FRIENDLY_NAMES[value]}</option>
+                    </select>
+                </div>
+                <br>
+
+
+                <div class='option' style="white-space: nowrap" title="Don't apply any adjustments to intervals of this program.">
+                    <span class="program_label">No adjustments:</span>
+                    <input name="fixed" type="checkbox" ${'checked' if program.fixed else ''}>
+                </div>
+                <div class='option' style="white-space: nowrap" title="Skip the program if the total adjustment is lower than this percentage.">
+                    <span class="program_label">Cut-off:</span>
+                    <input name="cut_off" type="number" min="0" max="100" size="3" maxlength="3" value="${program.cut_off}">
+                </div>
+
+            </div>
+            <div style="display: inline-block; box-sizing: border-box; vertical-align: top;">
+            $for station in stations.enabled_stations():
+                <div style="padding: 0; white-space: nowrap;">
+                    <div class="program_label">${station.name}:</div>
+                    <div style="display: inline-block;">
+                        <button id="station${station.index}" class="station toggle narrow ${'on' if station.index in program.stations else 'off'}">
+                            <span class="toggleleft">On</span>
+                            <span class="togglesep">&nbsp;</span>
+                            <span class="toggleright">Off</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="simpleblock" id="days_controls" style="display: none;">
+            <input type="hidden" id="days" name="days" value="${program.days()}">
+            <div class='option'>
+                <span class="program_label">Days:</span>
+                <div style="display: inline-block;">
+                    $for day in xrange(7):
+                        <button id="day${day}" class="weekday pushon ${'on' if day in program.days() else 'off'}">${long_day(day)}</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="simpleblock" id="repeat_controls" style="display: none;">
+            <input type="hidden" id="interval" name="interval" value="">
+            <input type="hidden" id="interval_delay" name="interval_delay" value="">
+            <div class='option'>
+                <span class="program_label">Water interval:</span>
+                <div id="intervalSelector" class="animatedSelector simpleinlineblock" >
+                    <!--  Customize this with any set of intervals you like up to 127 -->
+                    $for days in range(1, 8) + [10, 12, 14, 15, 21, 30]:
+                        <span class="intervalSelect">${days}</span>
+                </div>
+            </div>
+            <div class='option'>
+                <span class="program_label">Starting in:</span>
+                <div id="intervalDelaySelector" class="animatedSelector simpleinlineblock">
+                    <span class="intervalSelect distance0">0</span>
+                    <span class="intervalSelect distance1">1</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="simpleblock" id="simple_controls" style="display: none;">
+            <div class='option' style="white-space: nowrap">
+                <span class="program_label">Start time:</span>
+                <input name="simple_hour" type="number" maxlength="2" value="${two_digits(program.start_min()/60)}" style="width: 60px" min="0" max="23"> :
+                <input name="simple_minute" type="number" maxlength="2" value="${two_digits(program.start_min()%60)}" style="width: 60px" min="0" max="59">
+            </div>
+            <div class='option' style="white-space: nowrap">
+                <span class="program_label">Duration:</span>
+                <input name="simple_duration" type="number" maxlength="4" value="${program.duration_min()}" style="width: 60px" min="0" max="1440">
+                minute(s)
+            </div>
+            <div class='option' style="white-space: nowrap">
+                <span class="program_label">Repeat:</span>
+                <input id="simple_repeat" name="simple_repeat" type="checkbox" ${'checked' if program.repeat_times() > 0 else ''}>
+            </div>
+            <div class='repeat option' style="white-space: nowrap">
+                <span class="program_label">Repetitions:</span>
+                <input name="simple_rcount" type="number" maxlength="1" value="${max(program.repeat_times(), 1)}" style="width: 60px" min="1" max="9">
+                time(s)
+            </div>
+            <div class='repeat option' style="white-space: nowrap">
+                <span class="program_label">Pause:</span>
+                <input name="simple_pause" type="number" maxlength="1" value="${program.pause_min()}" style="width: 60px" min="1" max="1440">
+                minute(s)
+            </div>
+        </div>
+
+        <div class="simpleblock" id="advanced_controls" style="display: none;">
+            <input type="hidden" id="advanced_schedule_data" name="advanced_schedule_data" value="${[interval for interval in program.typed_schedule() if interval[1] <= 1440]}">
+            <table id="advanced_schedule" class="advancedSchedule">
+                <tr>
+                    <td>
+                    $for hour in xrange(0, 24):
+                        $ t = datetime.time(hour=hour, minute=0)
+                        $if options.time_format:
+                            <td class="scheduleTick">${t.strftime("%H:%M")}</td>
+                        $else:
+                            <td class="scheduleTick">${t.strftime("%I %p").lstrip('0')}</td>
+                </tr>
+                <tr class="daySchedule odd" id='advanced_schedule0'>
+                    <td class='station_name' style="border-right: solid">Schedule:</td>
+                    $for tick in xrange(0,24):
+                        <td class="scheduleTick" data="$tick"></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="simpleblock" id="weekly_controls" style="display: none;">
+            <input type="hidden" id="weekly_schedule_data" name="weekly_schedule_data" value="${[interval for interval in program.typed_schedule() if interval[1] <= 7*1440]}">
+            <table id="weekly_schedule" class="advancedSchedule">
+                <tr>
+                    <td>
+                    $for hour in xrange(0, 24):
+                        $ t = datetime.time(hour=hour, minute=0)
+                        $if options.time_format:
+                            <td class="scheduleTick">${t.strftime("%H:%M")}</td>
+                        $else:
+                            <td class="scheduleTick">${t.strftime("%I %p").lstrip('0')}</td>
+                </tr>
+                $for day in xrange(7):
+                    <tr class="daySchedule ${loop.parity}" id='weekly_schedule${day}'>
+                        <td class='station_name' style="border-right: solid">${long_day(day)}:</td>
+                        $for tick in xrange(0,24):
+                            <td class="scheduleTick" data="$tick"></td>
+                    </tr>
+            </table>
+        </div>
+
+        <div class="simpleblock" id="custom_controls" style="display: none;">
+            <input type="hidden" id="custom_schedule_data" name="custom_schedule_data" value="${program.schedule}">
+            <table id="custom_schedule" class="advancedSchedule">
+                <tr>
+                    <td>
+                    $for hour in xrange(0, 24):
+                        $ t = datetime.time(hour=hour, minute=0)
+                        $if options.time_format:
+                            <td class="scheduleTick">${t.strftime("%H:%M")}</td>
+                        $else:
+                            <td class="scheduleTick">${t.strftime("%I %p").lstrip('0')}</td>
+                </tr>
+            </table>
+        </div>
+
+    </form>
+</div>
+
+<div id="controls">
+    <button id="cSubmit" class="submit"><b>Save</b></button>
+    <button id="cCancel" class="cancel danger">Cancel</button>
+    <span id="errorHint"></span>
+</div>

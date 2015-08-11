@@ -1,0 +1,10 @@
+﻿[Unit]
+Description=OpenSprinkler Python
+
+[Service]
+WorkingDirectory="{{OSPY_DIR}}"
+ExecStart=/usr/bin/python run.py
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

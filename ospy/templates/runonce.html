@@ -1,0 +1,27 @@
+$def with ()
+
+$var title: Run-Once
+$var page: runonce
+
+
+<script src="/static/scripts/runonce.js"></script>
+<div id="runonce">
+    <div class="title">Run Once Program</div>
+    <form id="runonceForm" method="post">
+        <table class="stationList">
+            $for station in stations.enabled_stations():
+                <tr>
+                    <td class='station_name'>${station.name}</td>
+                    <td>
+                        <input id="mm${station.index}" name="mm${station.index}" type="number" size="3" maxlength="3" value="0" min="0" max="999">:
+                        <input id="ss${station.index}" name="ss${station.index}" type="number" size="2" maxlength="2" value="0" min="0" max="59"> (mm:ss)
+                    </td>
+                </tr>
+
+        </table>
+    </form>
+</div>
+
+<a id="cSubmit" class="button submit"><b>Run Now</b></a>
+<a id="cResetTime" class="button refresh">Reset Time</a>
+<a href="/" class="button cancel danger">Cancel</a>

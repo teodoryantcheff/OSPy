@@ -1,0 +1,38 @@
+$def with ()
+
+$var title: Manage Plugins
+$var page: plugins
+
+
+<script src="/static/scripts/plugins_install.js"></script>
+<div id="controls">
+    <form method="POST" enctype="multipart/form-data" action="/plugins_install">
+        Custom plug-in (ZIP):
+        <input type="file" name="zipfile" />
+        <button id="cSubmit" class="submit">Install</button>
+    </form>
+    $for repo_index, repo in enumerate(plugins.REPOS):
+        <div style="vertical-align:middle;" class='category collapsible collapsed'>
+            <h4>
+                <a style="float:right;" href="/plugins_install?repo=${repo_index}&install" class="minibutton open">Install all</a>
+                ${repo}
+            </h4>
+
+            $ available_list = plugins.available()
+            $for plugin, info in plugins.checker.get_repo_contents(repo).iteritems():
+                <div class='category collapsible collapsed'>
+                    <h5>
+                        <a style="float:right;" href="/plugins_install?repo=${repo_index}&plugin=${plugin}&install" class="minibutton open">
+                        $if plugin in available_list:
+                            Reinstall
+                        $else:
+                            Install
+                        </a>
+                        ${info['name']}
+                    </h5>
+                    <div style="margin-left: 10px;">
+                        $:{info['read_me']}
+                    </div>
+                </div>
+        </div>
+</div>

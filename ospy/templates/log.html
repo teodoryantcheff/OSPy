@@ -1,0 +1,40 @@
+$def with ()
+
+$var title: Log
+$var page: log
+
+
+<div id="options">
+    <div class="title">Log ${"Enabled" if options.run_log else "Disabled"}</div>
+</div>
+
+<div id="log">
+    $ records = log.finished_runs()
+    <p>Total number of records: ${len(records)} (${"no" if options.run_entries==0 else options.run_entries} limit)</p>
+    <p>Download log as <a href="?csv">csv</a>.</p>
+
+    <table class="logList">
+        <tr class="log_rec">
+            <th>Date</th>
+            <th>Start Time</th>
+            <th>Station</th>
+            <th>Duration</th>
+            <th>Program</th>
+        </tr>
+        $for interval in reversed(records):
+            $ duration = (interval['end'] - interval['start']).total_seconds()
+            $ minutes, seconds = divmod(duration, 60)
+            <tr class="log_rec ${loop.parity}">
+                <td align='center'>${interval["start"].strftime("%Y-%m-%d")}</td>
+                <td align='center'>${formatTime(interval["start"].strftime("%H:%M:%S"))}</td>
+                <td align='center'>${stations[interval["station"]].name}</td>
+                <td align='center'>${"%02d:%02d" % (minutes, seconds)}</td>
+                <td align='center'>${interval["program_name"]}</td>
+            </tr>
+    </table>
+
+</div>
+
+<a href="" class="button refresh">Refresh</a>
+<a href="?clear" class="button delete danger">Clear Log</a>
+

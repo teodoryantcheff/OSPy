@@ -1,0 +1,6 @@
+# Ignore everything in this directory
+*
+# Except the core part
+!__init__.py
+!README.md
+!.gitignore

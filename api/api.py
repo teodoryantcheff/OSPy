@@ -3,25 +3,13 @@ __author__ = 'Teodor Yantcheff'
 
 from utils import *
 
-import version
-from stations import stations
-from options import options
-from programs import programs, ProgramType
-from log import log
-import helpers
+from ospy import version
+from ospy.stations import stations
+from ospy.options import options
+from ospy.programs import programs, ProgramType
+from ospy.log import log
+from ospy import helpers
 
-urls = (
-    # Stations
-    r'/stations(?:/(?P<station_id>\d+))?/?', 'Stations',
-    # Programs
-    r'/programs(?:/(?P<program_id>\d+))?/?', 'Programs',
-    # Options
-    r'/options/?', 'Options',
-    # Logs
-    r'/logs/?', 'Logs',
-    # System
-    r'/system/?', 'System',
-)
 
 logger = logging.getLogger('OSPyAPI')
 logger.setLevel(logging.DEBUG)
@@ -376,4 +364,17 @@ class System(object):
         web.header('Access-Control-Allow-Headers', 'Content-Type')
         web.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
 
-app_OSPyAPI = web.application(urls, locals())
+def get_app():
+    urls = (
+        # Stations
+        r'/stations(?:/(?P<station_id>\d+))?/?', 'Stations',
+        # Programs
+        r'/programs(?:/(?P<program_id>\d+))?/?', 'Programs',
+        # Options
+        r'/options/?', 'Options',
+        # Logs
+        r'/logs/?', 'Logs',
+        # System
+        r'/system/?', 'System',
+    )
+    return web.application(urls, locals())

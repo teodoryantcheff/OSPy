@@ -13,8 +13,8 @@ import web
 
 from errors import badrequest, unauthorized
 
-from helpers import test_password
-from options import options
+from ospy.helpers import test_password
+from ospy.options import options
 
 logger = logging.getLogger('OSPyAPI')
 

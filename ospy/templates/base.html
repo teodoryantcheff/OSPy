@@ -1,0 +1,72 @@
+$def with (content)
+<html>
+<head>
+    <meta name="viewport" content="width=640">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>${options.name + " - " + content.title}</title>
+    <link href="/static/images/favicon.ico" rel="icon" type="image/x-icon">
+
+    $if content.page == 'help':
+        <link href="/static/css/github.css" rel="stylesheet" type="text/css">
+    <link href="/static/themes/${options.theme}/theme.css" rel="stylesheet" type="text/css">
+    <script src="/static/scripts/jquery-1.8.2.min.js"></script>
+    <script src="/static/scripts/basic.js"></script>
+    <script>
+        // Server provides local timestamp, adjust it such that JS dates will also use the server's local time
+        var device_time = ${now()} * 1000 + (new Date()).getTimezoneOffset() * 60 * 1000;
+        var to_device_time = (new Date()).getTimezoneOffset() * 60 * 1000 + (${now()} * 1000 - (new Date).getTime());
+        var timeFormat = ${str(options.time_format).lower()};
+        $if content.page != 'login':
+            var manual_mode = ${str(options.manual_mode).lower()};
+    </script>
+</head>
+<body>
+    <div class="content">
+        <div id="pluginMenu">
+            <a class="button" href="/plugins_manage">Manage</a><br/>
+            $for plugin in plugins.running():
+                $if plugins.get(plugin).LINK:
+                    <a class="button execute" href="${plugins.plugin_url(plugins.get(plugin).LINK)}">${plugins.get(plugin).NAME}</a><br/>
+        </div>
+
+        <div class="header">
+            <div class="title">${options.name if options.name != "OpenSprinkler Py" else ""}</div>
+        </div>
+
+        <div class="body">
+            <div id="status">
+                <p id="deviceTime"><span class="hour"></span><span class="sep">:</span><span class="minute"></span><span class="second"></span><span class="ampm"></span></p>
+                <p id="deviceDate"></p>
+            </div>
+
+            <div class="panel">
+
+                $if content.page != 'login':
+                    <div id="nav">
+                        <a href="/" class="button home${' here' if content.page=='home' else ''}" title="Home"></a>
+                        <a href="/programs" id="bPrograms" class="button programs${' here' if content.page=='programs' else ''}" title="Define Programs">Programs</a>
+                        $if not options.manual_mode:
+                            <a href="/runonce" id="bRunOnce" class="button start${' here' if content.page=='runonce' else ''}" title="Define Run Once Program">Run Once</a>
+                        <a id="bPlugins" class="button plugins${' here' if content.page=='plugins' else ''}" title="Access Plugins">Plugins</a>
+                        <a href="/log" id="bLog" class="button log${' here' if content.page=='log' else ''}" title="View Log">Log</a>
+                        <a href="/options" id="bOptions" class="button options${' here' if content.page=='options' else ''}" title="Options">Options</a>
+                        <a href="/stations" id="bStations" class="button stations${' here' if content.page=='stations' else ''}" title="Configure Stations">Stations</a>
+                        <a href="/help" id="bHelp" class="button help${' here' if content.page=='help' else ''}" title="Help">Help</a>
+                        $if not options.no_password:
+                            <a href="/logout" id="bLogout" class="button logout" title="Logout">Logout</a>
+                    </div>
+
+                $:content
+
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>CPU Temp: <b>
+                <a href="/ttu?${urllib.urlencode({'tunit': options.temp_unit})}" title="Click to toggle Celsius &lt;&gt; Fahrenheit">${get_cpu_temp(options.temp_unit)} ${options.temp_unit}</span>
+            </b></p>
+            <p><a href="https://github.com/Rimco/OSPy">Software</a> version: <b>${version.ver_str} (${version.ver_date})</b></p>
+        </div>
+    </div>
+</body>
+</html>

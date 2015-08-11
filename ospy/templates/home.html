@@ -1,0 +1,128 @@
+$def with ()
+
+$var title: Home
+$var page: home
+
+<script src="/static/scripts/home.js"></script>
+<div id="options" style="display: inline-block; box-sizing: border-box; vertical-align: top; min-width: 50%">
+    <a href="javascript:water_level_prompt(${options.level_adjustment});" class="button toggle choice ${'on' if options.level_adjustment==1.0 else 'off'}"><span class='toggleleft'>Normal</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>${'Water Level' if options.level_adjustment==1.0 else str(round(options.level_adjustment*100)) + '% Level'}</span></a>
+    <br>
+    <a href="javascript:rain_delay_prompt(${max(0, (options.rain_block - datetime.datetime.now()).total_seconds())});" class="button toggle ${'off' if rain_blocks.seconds_left() else 'on'}"><span class='toggleleft'>Active</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>Rain Delay</span></a>
+    $if rain_blocks.seconds_left():
+        <span id="rain_block_time" class="countdown" data="${str(rain_blocks.seconds_left())}"></span>
+    $if inputs.rain_sensed():
+        <span class="rainsense">Rain sensed</span>
+    <br>
+    <br>
+    <a href="/action?manual_mode=${'0' if options.manual_mode else '1'}" class="button toggle choice ${'off' if options.manual_mode else 'on'}"><span class='toggleleft'>Schedule</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>Manual</span></a>
+    $if not options.manual_mode:
+        <br>
+        <a href="/action?scheduler_enabled=${'0' if options.scheduler_enabled else '1'}" class="button toggle ${'on' if options.scheduler_enabled else 'off'}"><span class='toggleleft'>Enabled</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>Disabled</span></a>
+    <br>&nbsp;
+</div>
+<div style="display: inline-block; box-sizing: border-box; vertical-align: top;">
+    $if len([v for v in level_adjustments.values() if abs(v-1) > 0.001]) > 0:
+        <b>Water Level adjustments</b>
+        <table class="adjustmentList">
+            $if abs(options.level_adjustment-1) > 0.001:
+                <tr>
+                    <td>User</td>
+                    <td class="adjValue">$(options.level_adjustment*100)%</td>
+                </tr>
+            $for name, adj in level_adjustments.iteritems():
+                $if abs(adj-1) > 0.001:
+                    <tr>
+                        <td>$name</td>
+                        <td class="adjValue">$(adj*100)%</td>
+                    </tr>
+            <tr>
+                <th>Total</th>
+                <th class="adjValue">$(level_adjustments.total_adjustment()*100)%</th>
+            </tr>
+        </table>
+</div>
+<div id="stationsdiv">
+
+$if options.manual_mode:
+    <div id="manualmode">
+        <table id="stations" class="stationList">
+        $# Manual program control formatting
+        $for station in stations:
+            $if station.enabled or station.is_master:
+                <tr>
+                    <td class='station_name'>${station.name}</td>
+                    $if station.is_master:
+                        $if station.active:
+                            <td class="master station_on" colspan="6">On (Master)</td>
+                        $else:
+                            <td class="master station_off" colspan="6">Off (Master)</td>
+                    $else:
+                        $if station.active:
+                            $ rem = station.remaining_seconds
+                            <td class="shrink station_running"><button class='toggle manual narrow on' id='${station.index}'>
+                            <span class='toggleleft'>On</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>Off</span></button></td>
+                            $if rem >= 0:
+                                <td class="shrink station_running">in</td>
+                                <td class="shrink station_running"><input type='text' id='mm${station.index}' size='2' maxlength='3' value='${two_digits(rem/60)}' readonly/></td>
+                                <td class="shrink station_running">:</td>
+                                <td class="shrink station_running"><input type='text' id='ss${station.index}' size='2' maxlength='2' value='${two_digits(rem%60)}' readonly/></td>
+                                <td class="station_running">(mm:ss)</td>
+                            $else:
+                                <td class="shrink station_running" colspan="5">Forever</td>
+                        $else:
+                            <td class="shrink station_running"><button class='toggle manual narrow off' id='${station.index}'>
+                            <span class='toggleleft'>On</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>Off</span></button></td>
+                            <td class="shrink station_running">for</td>
+                            <td class="shrink station_running"><input type='text' id='mm${station.index}' size='2' maxlength='3' value='00'/></td>
+                            <td class="shrink station_running">:</td>
+                            <td class="shrink station_running"><input type='text' id='ss${station.index}' size='2' maxlength='2' value='00'/></td>
+                            <td class="station_running">(mm:ss)</td>
+                </tr>
+        <tr>
+            <td colspan="7">
+                <a href="/action?stop_all" class="button execute delete">Stop All Stations</a>
+            </td>
+        </tr>
+        </table>
+    </div>
+$else:
+    <div id="programmode">
+        <table id="stations" class="stationList">
+            <tr>
+                <td colspan="2"></td>
+                <td colspan="8">
+                    <span id="displayScheduleDate"></span>
+                </td>
+                <td colspan="16" style="text-align:right">
+                    <a id="pPrev" class="button execute">&lt;&lt; Prev Day</a>
+                    <a id="pToday" class="button execute">Today</a>
+                    <a id="pNext" class="button execute">Next Day &gt;&gt;</a>
+                </td>
+            </tr>
+            <tr><td colspan="2">
+                $for hour in xrange(0, 24):
+                    $ t = datetime.time(hour=hour, minute=0)
+                    $if options.time_format:
+                        <td class="scheduleTick">${t.strftime("%H:%M")}</td>
+                    $else:
+                        <td class="scheduleTick">${t.strftime("%I %p").lstrip('0')}</td>
+            </tr>
+            $for station in [station for station in stations if station.enabled or station.is_master]:
+                <tr class="stationSchedule ${loop.parity}" id='schedule${station.index}' data="${station.index}">
+                    <td class='station_name'>${station.name}</td>
+                    <td id='status${station.index}' class="stationStatus">loading...</td>
+                    $for tick in xrange(0,24):
+                        <td class="scheduleTick" data="$tick"></td>
+                </tr>
+            <tr>
+                <td colspan="2">
+                <a href="/action?stop_all" class="button execute delete">Stop All Stations</a>
+                </td>
+                <td colspan="24" id="legend" style="text-align:center">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>
+

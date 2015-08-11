@@ -1,0 +1,53 @@
+$def with ()
+
+$var title: Stations
+$var page: stations
+
+
+<script src="/static/scripts/stations.js"></script>
+<div id="stations">
+    <div class="title">Configure Stations</div>
+    <form id="stationsForm" name="stationsForm" action="/stations" method="post">
+        <table class="stationList">
+            <tr>
+                <th class="stationNumber">Station</th>
+                <th class="stationName">Name</th>
+                <th class="stationUsage">Usage</th>
+                <th class="stationShow">Connected?</th>
+                <th class="stationIgnore">Ignore Rain?</th>
+                $if stations.master is not None or options.master_relay:
+                    <th class="stationMaster">Activate Master?</th>
+            </tr>
+            $for station in stations.get():
+                <tr>
+                    <td class="stationNumber">${station.index + 1}</td>
+                    <td class="stationName">
+                        <input type="text" size="32" value="${station.name}" name="${station.index}_name">
+                    </td>
+                    <td class="stationUsage">
+                        <input type="number" size="3" maxlength="3" value="${str(station.usage)}" name="${station.index}_usage">
+                    </td>
+                    $if station.is_master:
+                        <td class="stationMaster" colspan="4">(Master station)</td>
+                    $else:
+                        <td class="stationShow">
+                            <input type="checkbox" ${"checked" if station.enabled else ""} name="${station.index}_enabled">
+                        </td>
+                        <td class="stationIgnore">
+                            <input type="checkbox" ${"checked" if station.ignore_rain else ""} name="${station.index}_ignore_rain">
+                        </td>
+                        $if stations.master is not None or options.master_relay:
+                            <td class="stationMaster">
+                                <input type="checkbox" ${"checked" if station.activate_master else ""} name="${station.index}_activate_master">
+                            </td>
+                </tr>
+
+        </table>
+
+        <p></p>
+    </form>
+</div>
+
+<a id="cSubmit" class="button submit"><b>Submit Changes</b></a>
+<a id="cResetNames" class="button refresh">Reset Names</a>
+<a href="/" class="button cancel danger">Cancel</a>
