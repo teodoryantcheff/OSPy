@@ -1,3 +1,4 @@
 cstruct==1.6
-spidev==3.2
 Markdown==2.6.11
+spidev==3.2
+web.py==0.39
