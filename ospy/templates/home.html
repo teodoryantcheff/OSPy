@@ -3,6 +3,10 @@ $def with ()
 $var title: Home
 $var page: home
 
+<script src="/static/scripts/jquery.flot.js"></script>
+<script src="/static/scripts/jquery.flot.time.js"></script>
+<script src="/static/scripts/jquery.flot.resize.js"></script>
+<script src="/static/scripts/jquery.flot.axislabels.js"></script>
 <script src="/static/scripts/home.js"></script>
 <div id="options" style="display: inline-block; box-sizing: border-box; vertical-align: top; min-width: 50%">
     <a href="javascript:water_level_prompt(${options.level_adjustment});" class="button toggle choice ${'on' if options.level_adjustment==1.0 else 'off'}"><span class='toggleleft'>Normal</span><span class='togglesep'>&nbsp;</span><span class='toggleright'>${'Water Level' if options.level_adjustment==1.0 else str(round(options.level_adjustment*100)) + '% Level'}</span></a>
@@ -123,6 +127,13 @@ $else:
             </tr>
         </table>
     </div>
-
 </div>
+
+$if not options.manual_mode and any((station.enabled and any(station.index in program.stations for program in programs.get()) and any(balance['valid'] for balance in station.balance.values())) for station in stations.get()):
+    <div id="graph-container" class="graph-container">
+        <div id="legend-placeholder" style="display:none;"></div>
+        <div id="legend-visible" style="float: right; width: auto;"></div>
+        <div id="graph-placeholder" class="graph-placeholder" style="overflow: hidden;"></div>
+        <div style="clear: both;"></div>
+    </div>
 

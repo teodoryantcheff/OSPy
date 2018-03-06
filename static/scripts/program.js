@@ -224,7 +224,27 @@ function check_type() {
     } else {
         jQuery("#custom_controls").hide()
     }
+    if (schedule_type == WEEKLY_WEATHER) {
+        jQuery("#weather_controls").show()
+        jQuery("#weather_pems").show()
+        jQuery("#adjustment_controls").hide()
+    } else {
+        jQuery("#weather_controls").hide()
+        jQuery("#weather_pems").hide()
+        jQuery("#adjustment_controls").show()
+    }
     jQuery(".addStartMarker, .newStart").remove();
+}
+
+function create_weather_schedule() {
+    var pems = jQuery("#pemList tbody tr.pemEntry").map(function() {
+        var day = parseInt(jQuery(this).find('.weather_pem_day').first().val());
+        var hour = parseInt(jQuery(this).find('.weather_pem_hour').first().val());
+        var min = parseInt(jQuery(this).find('.weather_pem_min').first().val());
+        var prio = parseInt(jQuery(this).find('.weather_pem_prio').first().val());
+        return [[day*1440+hour*60+min, prio]];
+    }).get();
+    jQuery("#weather_pems_data").val(JSON.stringify(pems));
 }
 
 jQuery(document).ready(function(){
@@ -299,4 +319,19 @@ jQuery(document).ready(function(){
             .mouseout(addScheduleMouseout)
             .click(addScheduleClick);
 
+    jQuery("button#weather_pem_add").click(function(){
+        jQuery("#pemList tbody tr:first").clone().attr('style', '').attr('class', 'pemEntry').appendTo("#pemList tbody");
+        create_weather_schedule();
+        return false;
+    });
+
+    jQuery('#pemList').on('click', '.weather_pem_delete', function(){
+        jQuery(this).closest('tr').remove();
+        create_weather_schedule();
+        return false;
+    });
+
+    jQuery('#pemList').on('change', 'select,input', function(){
+        create_weather_schedule();
+    });
 });

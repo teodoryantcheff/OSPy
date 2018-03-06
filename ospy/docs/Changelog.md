@@ -1,6 +1,15 @@
 OSPy Changelog
 ====
 
+May 24 2017
+-----------
+(Rimco)<br/>
+Changes:<br/>
+1. Added native weather module using Weather Underground data.<br/>
+2. Added ETo calculations based on Weather Underground data.<br/>
+3. Added precipitation in mm/h per station.<br/>
+4. Added new schedule type which sprinkles based on ETo calculations.<br/>
+
 September 10 2014
 ----------
 (martinpihrt)<br/>

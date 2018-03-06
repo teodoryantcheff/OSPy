@@ -73,6 +73,8 @@ class PluginOptions(dict):
                     self[key] = float(qdict.get(key, old_value))
                 elif isinstance(default_value, str) or isinstance(old_value, unicode):
                     self[key] = qdict.get(key, old_value)
+                elif isinstance(default_value, list):
+                    self[key] = [int(x) for x in qdict.get(key, old_value)]
             except ValueError:
                 import web
                 raise web.badrequest('Invalid value for \'%s\': \'%s\'' % (key, qdict.get(key)))
@@ -116,7 +118,7 @@ class _PluginChecker(threading.Thread):
                 if options.auto_plugin_update and not log.active_runs():
                     for plugin in available():
                         update = self.available_version(plugin)
-                        if update is not None and status[plugin]['hash'] != update['hash']:
+                        if update is not None and plugin in status and status[plugin]['hash'] != update['hash']:
                             logging.info('Updating the {} plug-in.'.format(plugin))
                             self.install_repo_plugin(update['repo'], plugin)
 

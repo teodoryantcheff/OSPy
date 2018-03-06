@@ -74,8 +74,8 @@ def predicted_schedule(start_time, end_time):
     # Get run-now information:
     if programs.run_now_program is not None:
         program = programs.run_now_program
-        run_now_intervals = program.active_intervals(start_time, end_time)
         for station in sorted(program.stations):
+            run_now_intervals = program.active_intervals(start_time, end_time, station)
             for interval in run_now_intervals:
                 if station >= stations.count() or stations.master == station or not stations[station].enabled:
                     continue
@@ -106,9 +106,9 @@ def predicted_schedule(start_time, end_time):
         if not program.enabled:
             continue
 
-        program_intervals = program.active_intervals(start_time, end_time)
-
         for station in sorted(program.stations):
+            program_intervals = program.active_intervals(start_time, end_time, station)
+
             if station >= stations.count() or stations.master == station or not stations[station].enabled:
                 continue
 
@@ -122,7 +122,7 @@ def predicted_schedule(start_time, end_time):
                 new_schedule = {
                     'active': None,
                     'program': program.index,
-                    'program_name': program.name, # Save it because programs can be reordered
+                    'program_name': program.name, # Save it because programs can be renamed
                     'fixed': program.fixed,
                     'cut_off': program.cut_off/100.0,
                     'manual': program.manual,
@@ -169,7 +169,8 @@ def predicted_schedule(start_time, end_time):
 
             all_intervals.append(new_interval)
 
-    # Make list of entries sorted on time (stable sorted on station #)
+    # Make list of entries sorted on duration and time (stable sorted on station #)
+    all_intervals.sort(key=lambda inter: inter['end'] - inter['start'])
     all_intervals.sort(key=lambda inter: inter['start'])
 
     # If we have processed some intervals before, we should skip all that were scheduled before them
@@ -178,7 +179,7 @@ def predicted_schedule(start_time, end_time):
         while index < len(all_intervals):
             interval = all_intervals[index]
 
-            if interval['original_start'] < to_skip['original_start']:
+            if interval['original_start'] < to_skip['original_start'] and (not to_skip['blocked'] or interval['blocked']):
                 del all_intervals[index]
             elif interval['uid'] == to_skip['uid']:
                 del all_intervals[index]
@@ -255,7 +256,28 @@ def predicted_schedule(start_time, end_time):
 
                             # Lower usage at this starting point:
                             if next_change < 0:
-                                time_to_next = next_option + delay_delta - interval['start']
+                                skip_delay = False
+                                if options.min_runtime > 0:
+                                    # Try to determine how long we have been running at this point:
+                                    min_runtime_delta = datetime.timedelta(seconds=options.min_runtime)
+                                    temp_usage = 0
+                                    running_since = next_option
+                                    not_running_since = next_option
+                                    for temp_index in range(0, start_key_index):
+                                        temp_usage_key = usage_keys[temp_index]
+                                        if temp_usage < 0.01 and usage_changes[temp_usage_key] > 0 and temp_usage_key - not_running_since > datetime.timedelta(seconds=3):
+                                            running_since = temp_usage_key
+                                        temp_usage += usage_changes[temp_usage_key]
+                                        if temp_usage < 0.01 and usage_changes[temp_usage_key] < 0:
+                                            not_running_since = temp_usage_key
+                                    if next_option - running_since < min_runtime_delta:
+                                        skip_delay = True
+
+                                if skip_delay:
+                                    time_to_next = next_option - interval['start']
+                                else:
+                                    time_to_next = next_option + delay_delta - interval['start']
+
                                 interval['start'] += time_to_next
                                 interval['end'] += time_to_next
                                 break
@@ -340,7 +362,8 @@ class _Scheduler(Thread):
             ignore_rain = stations.get(entry['station']).ignore_rain
             if entry['end'] <= current_time or (rain and not ignore_rain and not entry['blocked'] and not entry['manual']):
                 log.finish_run(entry)
-                stations.deactivate(entry['station'])
+                if not entry['blocked']:
+                    stations.deactivate(entry['station'])
 
         if not options.manual_mode:
             schedule = predicted_schedule(check_start, check_end)

@@ -13,6 +13,8 @@ $var page: stations
                 <th class="stationNumber">Station</th>
                 <th class="stationName">Name</th>
                 <th class="stationUsage">Usage</th>
+                <th class="stationUsage">Precipitation (mm/h)</th>
+                <th class="stationUsage">Capacity (mm)</th>
                 <th class="stationShow">Connected?</th>
                 <th class="stationIgnore">Ignore Rain?</th>
                 $if stations.master is not None or options.master_relay:
@@ -26,6 +28,12 @@ $var page: stations
                     </td>
                     <td class="stationUsage">
                         <input type="number" size="3" maxlength="3" value="${str(station.usage)}" name="${station.index}_usage">
+                    </td>
+                    <td class="stationUsage">
+                        <input type="number" size="3" maxlength="3" value="${str(station.precipitation)}" name="${station.index}_precipitation">
+                    </td>
+                    <td class="stationUsage">
+                        <input type="number" size="3" maxlength="3" value="${str(station.capacity)}" name="${station.index}_capacity">
                     </td>
                     $if station.is_master:
                         <td class="stationMaster" colspan="4">(Master station)</td>

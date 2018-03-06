@@ -1,6 +1,7 @@
 // Global vars
 var displayScheduleDate = new Date(device_time); // dk
 var displayScheduleTimeout;
+var graph_text;
 
 function displaySchedule(schedule) {
     if (displayScheduleTimeout != null) {
@@ -180,6 +181,126 @@ function countdownTimer(timerId) {
     }
 }
 
+function draw_graph(result) {
+    var data = [];
+    graph_text = [];
+    var legend_items = jQuery('#legend-visible').find('.legendColorBox');
+
+    for (var i = 0; i < result.length; i++) {
+        var balances = [];
+        var texts = [];
+        var txt_header = "<table class=\"balanceList\"><tr><th>Reason</th><th>(mm)</th></tr>";
+        var txt_body = "";
+        var txt_footer = "</table>";
+        for (timestamp in result[i]['balances']) {
+            var balance = result[i]['balances'][timestamp];
+            balances.push([1000*parseInt(timestamp), balance['total']]);
+            txt_body += "<tr><td>ETo</td><td class=\"balValue\">-" + balance['eto'].toFixed(1) + "</td></tr>";
+            txt_body += "<tr><td>Rain</td><td class=\"balValue\">+" + balance['rain'].toFixed(1) + "</td></tr>";
+
+            for (var j = 0; j < balance['intervals'].length; j++) {
+                var interval = balance['intervals'][j]
+                txt_body += "<tr><td>" + interval['program_name'] + "</td><td class=\"balValue\">+" + interval['irrigation'].toFixed(1) + "</td></tr>";
+            }
+
+            txt_body += "<tr><th>Total</th><th class=\"balValue\">" + balance['total'].toFixed(1) + "</th></tr>";
+            texts.push(result[i]['station'] + " @ " + toXSDate(new Date(1000*parseInt(timestamp))) + "<br>" + txt_header + txt_body + txt_footer);
+
+            txt_body = "<tr><td>Previous</td><td class=\"balValue\">" + balance['total'].toFixed(1) + "</td></tr>";
+        }
+
+        if (i >= legend_items.length || legend_items.eq(i).children().children().attr("data") == 1)
+        {
+            data.push({
+                data: balances,
+                label: result[i]['station'],
+                color: i
+            })
+            graph_text.push(texts);
+        }
+    }
+
+    return jQuery.plot("#graph-placeholder", data, {
+        series: {
+            lines: {
+                show: true
+            },
+            points: {
+                show: true
+            }
+        },
+        grid: {
+            hoverable: true
+        },
+        xaxis: {
+            mode: "time",
+            timeformat: "%Y-%m-%d"
+        },
+        legend: {
+            show: true,
+            container: jQuery("#legend-placeholder")
+        },
+        axisLabels: {
+            show: true
+        },
+        yaxes: [{
+            position: 'left',
+            axisLabel: 'Water balance (mm)'
+        }]
+    });
+}
+
+function create_graph(result) {
+    plot = draw_graph(result);
+
+    jQuery('#legend-visible').html(jQuery('#legend-placeholder').html());
+    plot.resize();
+    plot.setupGrid();
+    plot.draw();
+
+    jQuery('#legend-visible').find('.legendColorBox').children().children().css({
+        color: "#ddd"
+    }).attr("data", 1);
+
+    jQuery('#legend-visible').on('click', 'tr', function(){
+        var colorbox = jQuery(this).find('.legendColorBox').children().children();
+        colorbox.css({
+            "border-color": colorbox.css("color"),
+            "color": colorbox.css("border-left-color")
+        });
+        colorbox.attr("data", 1 - colorbox.attr("data"));
+        draw_graph(result);
+    });
+
+    jQuery("<div id='tooltip'></div>").css({
+        position: "absolute",
+        display: "none",
+        "min-width": "120px",
+        "background-color": "#eee",
+        padding: "5px",
+        "border-radius": "5px"
+    }).appendTo("body");
+
+    jQuery("#graph-placeholder").bind("plothover", function (event, pos, item) {
+        if (item) {
+            jQuery("#tooltip").html(graph_text[item.seriesIndex][item.dataIndex]);
+            var x = item.pageX+5;
+            if (item.pageX + jQuery("#tooltip").width() > jQuery(document).width() - 100)
+            {
+                x = item.pageX-jQuery("#tooltip").width()-10;
+            }
+            var y = item.pageY+5;
+            if (item.pageY + jQuery("#tooltip").height() > jQuery(document).height() - 20)
+            {
+                y = item.pageY-jQuery("#tooltip").height()-10;
+            }
+            jQuery("#tooltip").css({top: y, left: x}).fadeIn(200);
+        } else {
+            jQuery("#tooltip").hide();
+        }
+    });
+}
+
 jQuery(document).ready(function(){
     if (manual_mode) {
         jQuery("button.manual").click(function () {
@@ -222,4 +343,7 @@ jQuery(document).ready(function(){
     jQuery(".countdown").each(function() {
         countdownTimer(jQuery(this).attr('id'));
     });
+    if (jQuery("#graph-placeholder").length > 0) {
+        setTimeout(function() {jQuery.getJSON("/balance.json", create_graph)}, 500);
+    }
 });
