@@ -2,7 +2,7 @@ __author__ = 'teodoryantcheff'
 
 import logging
 
-from stations import _BaseStations
+from ospy.stations import _BaseStations
 
 from radio import OSPyRadio
 
