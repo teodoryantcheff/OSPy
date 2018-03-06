@@ -1,28 +1,27 @@
 # coding=utf-8
 
-import time
 import ctypes
-import sys
 import logging
+import sys
 import threading
+import time
 from array import array
 from datetime import datetime
 
-from utils import guarded
 from endpoint import EndpointStatusTable, Endpoint
+from utils import guarded
 
 try:
     from spidev import SpiDev
 except:
     SpiDev = object
 
-
 logger = logging.getLogger('radio')
 logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
 handler.setFormatter(logging.Formatter('%(name)s:%(levelname)s:%(message)s'))
-#handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
+# handler.setFormatter(logging.Formatter('%(asctime)s:%(name)s:%(levelname)s:%(message)s'))
 logger.addHandler(handler)
 
 
@@ -31,9 +30,10 @@ class SpiRadio(SpiDev):
 
         Source : https://docs.google.com/document/d/1FiQ4Q2LxqjEiFXdZioh2Kb4eAb2XIkMK5a_XP6EbG3w/edit
 
-        """
+    """
 
     _BUS_SPEED = 100000  # Clock data at this rate
+
     # _BUS_SPEED = 200000  # Clock data at this rate
 
     def __init__(self, *args, **kwargs):
@@ -54,14 +54,14 @@ class SpiRadio(SpiDev):
         return
 
     def get_netconfig_size(self):
-        #logger.debug('get_netconfig_size')
+        # logger.debug('get_netconfig_size')
         self.writebytes([0x55, 0x12])  # Command Get network config table size
         lsb, msb = self.readbytes(2)  # Read lsb, msb of size response
         self._netconfig_table_size = msb * 256 + lsb
         return self._netconfig_table_size
 
     def get_status_size(self):
-        #logger.debug('get_status_size')
+        # logger.debug('get_status_size')
         self.writebytes([0x55, 0x10])  # Command Get status table size
         lsb, msb = self.readbytes(2)  # Read lsb, msb of size response
         self._status_table_size = msb * 256 + lsb
@@ -113,7 +113,6 @@ class SpiRadio(SpiDev):
 
 
 class OSPyRadio(object):
-
     ENDPOINT_CACHE_TIME = 1000  # milliseconds
     SETOUTPUT_DEBOUNCE_TIME = 500  # milliseconds
 
@@ -141,7 +140,7 @@ class OSPyRadio(object):
     @guarded
     def get_endpoints(self):
         now = datetime.now()
-        if (now - self._last_endpoints_refresh).total_seconds() > self.ENDPOINT_CACHE_TIME/1000.0:
+        if (now - self._last_endpoints_refresh).total_seconds() > self.ENDPOINT_CACHE_TIME / 1000.0:
             self._last_endpoints_refresh = now
             status = str(bytearray(self._radio.get_status()))
             est = EndpointStatusTable(self)
@@ -175,7 +174,7 @@ class OSPyRadio(object):
             except:
                 pass
 
-            self._output_timers[link_id] = threading.Timer(self.SETOUTPUT_DEBOUNCE_TIME/1000.0,
+            self._output_timers[link_id] = threading.Timer(self.SETOUTPUT_DEBOUNCE_TIME / 1000.0,
                                                            self._radio.set_outputs, (link_id, output_state))
             self._output_timers[link_id].start()
         else:
@@ -209,7 +208,6 @@ def hexfmt(data):
 
 
 def test_lowlevel():
-
     radio = SpiRadio(bus=0, device=0)
 
     print 'DEVICE RESET'
