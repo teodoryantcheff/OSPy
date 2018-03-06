@@ -52,7 +52,7 @@ _json_dumps = partial(json.dumps,
 def does_json(func):
     """
     api function jsonificator
-    Takes care of IndexError and ValueError so that the decorated code can igrnore those
+    Takes care of IndexError and ValueError so that the decorated code can ignore those
     """
 
     @wraps(func)

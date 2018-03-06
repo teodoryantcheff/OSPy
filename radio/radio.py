@@ -151,7 +151,7 @@ class OSPyRadio(object):
 
     @guarded
     def get_netconfig_context(self):
-        # Load neconfig from device
+        # Load netconfig from device
         import netconfig
 
         context = netconfig.persistentContext_t()

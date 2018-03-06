@@ -365,17 +365,18 @@ class System(object):
         web.header('Access-Control-Allow-Headers', 'Content-Type')
         web.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
 
+
 def get_app():
     urls = (
         # Stations
-        r'/stations(?:/(?P<station_id>\d+))?/?', 'Stations',
+        r'/stations(?:/(?P<station_id>\d+))?/?', 'api.api.Stations',
         # Programs
-        r'/programs(?:/(?P<program_id>\d+))?/?', 'Programs',
+        r'/programs(?:/(?P<program_id>\d+))?/?', 'api.api.Programs',
         # Options
-        r'/options/?', 'Options',
+        r'/options/?', 'api.api.Options',
         # Logs
         r'/logs/?', 'Logs',
         # System
-        r'/system/?', 'System',
+        r'/system/?', 'api.api.System',
     )
     return web.application(urls, locals())
