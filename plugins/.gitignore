@@ -4,3 +4,4 @@
 !__init__.py
 !README.md
 !.gitignore
+!/radio_plugin.py
